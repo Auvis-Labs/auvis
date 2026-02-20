@@ -3,24 +3,22 @@ package main
 import (
 	"log"
 	"net/http"
-	"fmt"
 
-	"iris/config"
+	"hebris/config"
+	"hebris/proxy"
 )
 
 func main() {
 	cfg := config.LoadConfig()
 
-	log.Printf("IRIS starting on :%s → upstream %s", cfg.Port, cfg.UpstreamURL)
+	handler := proxy.Handler(cfg)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "Proxy target would be: %s%s", cfg.UpstreamURL, r.URL.Path)
-	})
+	http.HandleFunc("/", handler)
 
-	addr := ":" + cfg.Port
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	log.Printf("AUVIS running on port %s → proxying to %s", cfg.Port, cfg.UpstreamURL)
+
+	err := http.ListenAndServe(":"+cfg.Port, nil)
+	if err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

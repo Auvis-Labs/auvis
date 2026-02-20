@@ -3,18 +3,21 @@ package config
 import (
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	Port         string
 	UpstreamURL  string
-	AuditFile    string // we'll use later
+	AuditFile    string
 }
 
 func LoadConfig() Config {
+	godotenv.Load()
 	upstream := os.Getenv("IRIS_UPSTREAM")
 	if upstream == "" {
-		log.Fatal("IRIS_UPSTREAM environment variable is required (e.g. http://localhost:3000)")
+		log.Fatal("IRIS_UPSTREAM environment variable is required")
 	}
 
 	port := os.Getenv("IRIS_PORT")

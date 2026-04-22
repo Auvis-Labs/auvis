@@ -1,56 +1,116 @@
-# compiled output
-/dist
-/node_modules
-/build
+# ==========================================
+# AUVIS Workspace Gitignore Configuration
+# ==========================================
 
-# Logs
-logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# OS
+# OS Metadata
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
 
-# Tests
-/coverage
-/.nyc_output
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# IDE - VSCode
+# IDEs and Editors
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# dotenv environment variable files
+# ------------------------------------------
+# 1. Audit Logs (JSONL files)
+# ------------------------------------------
+# Ignore unstructured/append-only JSONL files created during testing or execution
+*.jsonl
+audit.jsonl
+**/audit.jsonl
+auvis-infra/audit.jsonl
+audit.jsonl.*
+
+# ------------------------------------------
+# 2. Local Environment Configuration
+# ------------------------------------------
+# Ignore all dot-env files and local configuration overrides
 .env
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
+*.local.yaml
+*local.yaml
+*.local.yml
+*local.yml
+auvis-infra/auvis.local.yaml
 
-# temp directory
-.temp
-.tmp
+# ------------------------------------------
+# 3. Compiled Binaries and Go Artifacts
+# ------------------------------------------
+# Compiled Go binaries and test runners
+/auvis-infra/auvis-infra
+/auvis-infra/auvis
+/auvis
+dist/
+build/
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.prof
+*.out
+cover.out
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# ------------------------------------------
+# 4. Python Environment & Cache (test-server)
+# ------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Pytest / coverage
+.cache/
+.pytest_cache/
+.coverage
+.coverage.*
+.htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+python-venv/

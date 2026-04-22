@@ -1,0 +1,212 @@
+# This data is intentionally realistic to test AUVIS masking.
+# Every field here is synthetic — no real people.
+
+USERS_DATA = [
+    {
+        "id": "usr_101",
+        "name": "Amara Okonkwo",
+        "email": "amara.okonkwo@gmail.com",
+        "phone": "+234-803-456-7890",
+        "ssn": "123-45-6789",
+        "date_of_birth": "1990-03-15",
+        "address": {
+            "street": "14 Admiralty Way",
+            "city": "Lagos",
+            "state": "Lagos",
+            "country": "Nigeria",
+            "zip": "101233"
+        },
+        "role": "customer",
+        "account_status": "active",
+        "created_at": "2022-01-10T08:30:00Z",
+        "region": "NG"
+    },
+    {
+        "id": "usr_102",
+        "name": "Chidi Eze",
+        "email": "chidi.eze@yahoo.com",
+        "phone": "+234-701-234-5678",
+        "ssn": "987-65-4321",
+        "date_of_birth": "1985-07-22",
+        "address": {
+            "street": "22 Herbert Macaulay Way",
+            "city": "Abuja",
+            "state": "FCT",
+            "country": "Nigeria",
+            "zip": "900001"
+        },
+        "role": "customer",
+        "account_status": "active",
+        "created_at": "2021-06-18T14:00:00Z",
+        "region": "NG"
+    },
+    {
+        "id": "usr_103",
+        "name": "Sarah Mitchell",
+        "email": "sarah.mitchell@outlook.com",
+        "phone": "+1-555-234-5678",
+        "ssn": "456-78-9012",
+        "date_of_birth": "1992-11-05",
+        "address": {
+            "street": "89 Oak Street",
+            "city": "Austin",
+            "state": "TX",
+            "country": "US",
+            "zip": "73301"
+        },
+        "role": "customer",
+        "account_status": "suspended",
+        "created_at": "2023-03-01T09:15:00Z",
+        "region": "US"
+    },
+    {
+        "id": "usr_104",
+        "name": "Fatima Al-Hassan",
+        "email": "fatima.alhassan@proton.me",
+        "phone": "+234-812-345-6789",
+        "ssn": "321-54-9876",
+        "date_of_birth": "1988-02-28",
+        "address": {
+            "street": "5 Kano Road",
+            "city": "Kano",
+            "state": "Kano",
+            "country": "Nigeria",
+            "zip": "700001"
+        },
+        "role": "premium_customer",
+        "account_status": "active",
+        "created_at": "2020-09-12T11:00:00Z",
+        "region": "NG"
+    },
+]
+
+TRANSACTIONS_DATA = [
+    {
+        "id": "txn_001",
+        "user_id": "usr_101",
+        "user_name": "Amara Okonkwo",
+        "user_email": "amara.okonkwo@gmail.com",
+        "card_number": "4242-4242-4242-4242",
+        "card_last4": "4242",
+        "card_type": "Visa",
+        "amount": 45000.00,
+        "currency": "NGN",
+        "merchant": "Jumia Nigeria",
+        "category": "ecommerce",
+        "status": "completed",
+        "ip_address": "197.210.54.12",
+        "timestamp": "2026-04-01T10:22:00Z",
+        "region": "NG"
+    },
+    {
+        "id": "txn_002",
+        "user_id": "usr_102",
+        "user_name": "Chidi Eze",
+        "user_email": "chidi.eze@yahoo.com",
+        "card_number": "5500-0000-0000-0004",
+        "card_last4": "0004",
+        "card_type": "Mastercard",
+        "amount": 120000.00,
+        "currency": "NGN",
+        "merchant": "Konga",
+        "category": "ecommerce",
+        "status": "completed",
+        "ip_address": "105.112.10.34",
+        "timestamp": "2026-04-02T14:45:00Z",
+        "region": "NG"
+    },
+    {
+        "id": "txn_003",
+        "user_id": "usr_103",
+        "user_name": "Sarah Mitchell",
+        "user_email": "sarah.mitchell@outlook.com",
+        "card_number": "3782-822463-10005",
+        "card_last4": "0005",
+        "card_type": "Amex",
+        "amount": 299.99,
+        "currency": "USD",
+        "merchant": "Amazon",
+        "category": "ecommerce",
+        "status": "flagged",
+        "ip_address": "72.21.198.67",
+        "timestamp": "2026-04-03T08:10:00Z",
+        "region": "US"
+    },
+    {
+        "id": "txn_004",
+        "user_id": "usr_104",
+        "user_name": "Fatima Al-Hassan",
+        "user_email": "fatima.alhassan@proton.me",
+        "card_number": "6011-1111-1111-1117",
+        "card_last4": "1117",
+        "card_type": "Discover",
+        "amount": 75000.00,
+        "currency": "NGN",
+        "merchant": "GTBank Transfer",
+        "category": "bank_transfer",
+        "status": "completed",
+        "ip_address": "41.184.21.7",
+        "timestamp": "2026-04-04T16:30:00Z",
+        "region": "NG"
+    },
+]
+
+MEDICAL_DATA = [
+    {
+        "id": "rec_001",
+        "patient_id": "usr_101",
+        "patient_name": "Amara Okonkwo",
+        "patient_email": "amara.okonkwo@gmail.com",
+        "date_of_birth": "1990-03-15",
+        "ssn": "123-45-6789",
+        "blood_type": "O+",
+        "diagnosis": "Type 2 Diabetes",
+        "medications": ["Metformin 500mg", "Lisinopril 10mg"],
+        "allergies": ["Penicillin", "Sulfa drugs"],
+        "doctor_name": "Dr. Emeka Nwosu",
+        "doctor_email": "e.nwosu@lagosgeneral.ng",
+        "hospital": "Lagos General Hospital",
+        "visit_date": "2026-03-20",
+        "notes": "Patient reported fatigue and increased thirst. HbA1c at 7.8. Adjusted Metformin dosage.",
+        "insurance_id": "INS-NG-2024-88712",
+        "region": "NG"
+    },
+    {
+        "id": "rec_002",
+        "patient_id": "usr_102",
+        "patient_name": "Chidi Eze",
+        "patient_email": "chidi.eze@yahoo.com",
+        "date_of_birth": "1985-07-22",
+        "ssn": "987-65-4321",
+        "blood_type": "A+",
+        "diagnosis": "Hypertension Stage 1",
+        "medications": ["Amlodipine 5mg"],
+        "allergies": [],
+        "doctor_name": "Dr. Ngozi Adeyemi",
+        "doctor_email": "n.adeyemi@abujamedical.ng",
+        "hospital": "Abuja Medical Centre",
+        "visit_date": "2026-03-28",
+        "notes": "BP reading 145/92. Lifestyle changes recommended. Follow-up in 6 weeks.",
+        "insurance_id": "INS-NG-2023-44521",
+        "region": "NG"
+    },
+    {
+        "id": "rec_003",
+        "patient_id": "usr_103",
+        "patient_name": "Sarah Mitchell",
+        "patient_email": "sarah.mitchell@outlook.com",
+        "date_of_birth": "1992-11-05",
+        "ssn": "456-78-9012",
+        "blood_type": "B-",
+        "diagnosis": "Generalized Anxiety Disorder",
+        "medications": ["Sertraline 50mg", "Lorazepam 0.5mg PRN"],
+        "allergies": ["Latex"],
+        "doctor_name": "Dr. Rachel Torres",
+        "doctor_email": "r.torres@austinhealth.com",
+        "hospital": "Austin Health Clinic",
+        "visit_date": "2026-04-05",
+        "notes": "Patient reports improved sleep but ongoing workplace stress. CBT referral made.",
+        "insurance_id": "INS-US-2024-991234",
+        "region": "US"
+    },
+]

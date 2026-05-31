@@ -5,7 +5,7 @@ from data import USERS_DATA
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/")
+@router.get("")
 def list_users(
     region: str = Query(None, description="Filter by region: NG, US"),
     current_user: dict = Depends(get_current_user)

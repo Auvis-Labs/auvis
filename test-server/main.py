@@ -59,6 +59,44 @@ def login(req: LoginRequest):
     }
 
 
+last_llm_request = None
+
+
+class Message(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[Message]
+
+
+@app.post("/llm/chat")
+def chat(req: ChatRequest):
+    global last_llm_request
+    last_llm_request = req.dict()
+    
+    content = ""
+    if req.messages:
+        content = req.messages[-1].content
+        
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": f"Thank you! I received: {content}"
+                }
+            }
+        ]
+    }
+
+
+@app.get("/llm/last_request")
+def get_last_request():
+    return {"last_request": last_llm_request}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "auvis-test-server"}

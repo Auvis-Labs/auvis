@@ -46,7 +46,8 @@ audit.jsonl.*
 *.local.yml
 *local.yml
 auvis-infra/auvis.local.yaml
-
+.continue/
+.continue
 # ------------------------------------------
 # 3. Compiled Binaries and Go Artifacts
 # ------------------------------------------
@@ -114,3 +115,6 @@ venv/
 ENV/
 env/
 python-venv/
+
+# Agents
+.continue/

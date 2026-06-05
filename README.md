@@ -8,7 +8,7 @@ Govern your data before it reaches your AI — so your AI projects don't die in 
 
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.1.0-green?style=flat)]()
+[![Version](https://img.shields.io/badge/version-v0.2.5-green?style=flat)]()
 [![Status](https://img.shields.io/badge/status-active%20development-orange?style=flat)]()
 
 </div>
@@ -59,7 +59,8 @@ S3 / GCS               │         LLM Context Windows
 1. **Policy evaluation** — match the record against your defined policies (<5ms)
 2. **Field-level transformation** — mask, redact, tokenize, or drop sensitive fields
 3. **ACL tag propagation** — carry source system permissions through to the vector index
-4. **Audit logging** — record every decision, transformation, and policy match asynchronously
+4. **Synchronous Sinks / Fan-out** — write transformed records synchronously and fail-closed to Postgres, Weaviate, pgvector, or Pinecone before client delivery
+5. **Audit logging** — record every decision, transformation, and policy match asynchronously
 
 Zero changes to your AI application code.
 
@@ -89,6 +90,12 @@ Zero changes to your AI application code.
 - Wildcard role policies (`*`) as catch-all fallback rules
 - Specificity-based precedence — explicit role always beats wildcard
 
+### Destination Sinks (Live)
+- **Synchronous Fan-out**: Synchronously commits governed payloads to databases. If write fails, the response is blocked (fail-closed) to prevent leaks.
+- **Postgres / pgvector**: Auto-provisions tables and enables `vector` extension natively to support SQL similarity search (`<->`).
+- **Weaviate**: Auto-creates class schemas, sanitizes names to PascalCase, and uses deterministic UUIDv5 hashing for retry safety.
+- **Pinecone**: Flat-maps nested payloads automatically to store key-value metadata alongside vector arrays.
+
 ### Audit & Compliance
 - Complete four-bucket field disposition per request: `fields_masked`, `fields_removed`, `fields_allowed`, `fields_denied`
 - `response_denied` flag for full-response blocks
@@ -104,7 +111,7 @@ Zero changes to your AI application code.
 ### Prerequisites
 
 - Go 1.22+
-- An upstream API or service to proxy
+- Docker & Docker Compose (for local testing environment)
 
 ### Install
 
@@ -114,7 +121,19 @@ cd auvis
 go build -o bin/auvis ./...
 ```
 
-### Run
+### Run (Local with Docker Compose)
+
+Auvis provides a Docker Compose environment that orchestrates the gateway with a Postgres (with `pgvector`) instance and a Weaviate instance.
+
+```bash
+# Spin up destinations and the gateway
+docker compose up -d
+
+# Check logs
+docker compose logs -f auvis
+```
+
+Alternatively, to run natively:
 
 ```bash
 # Start the proxy in dev mode
@@ -228,13 +247,21 @@ rules:
   - field: region_data
     action: remove
     condition: "record.region != user.region"
+
+  - field: tags
+    action: remove
+    condition: "record.tags contains 'critical'"
+
+  - field: clearance
+    action: deny
+    condition: "user.role in ['admin', 'auditor']"
 ```
 
-Supported operators: `==`, `!=`, `<`, `>`, `<=`, `>=`
+Supported operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `contains` (substring or array element matches), `in` (array literal check).
 
-Context variables: `user.fieldName` (from JWT), `record.fieldName` (from payload)
+Context variables: `user.fieldName` (from JWT), `record.fieldName` (from payload), `time.hour` (current UTC hour).
 
-**Fail behavior:** If a condition can't be evaluated (missing attribute, parse error), Auvis fails closed — the rule applies. Missing attributes are never treated as empty string.
+**Fail-Closed Security (Fixed):** If a condition cannot be evaluated due to missing variables or evaluation failures (returning an indeterminate state), Auvis strictly **fails closed**—the masking/removal rule is applied, or the record is excluded from arrays, and a `slog.Warn` warning is logged with the Request ID to auditing.
 
 ### Wildcard Roles
 
@@ -263,6 +290,20 @@ Explicit role policies always beat wildcard policies. No priority number needed 
 
 ---
 
+## Ingestion Pipelines & Kafka (Built)
+
+Auvis supports event-driven ingestion pipelines. A Kafka source connector is fully built and tested under `pipeline/source/kafka_source.go`.
+
+**Kafka Source Features:**
+- **Consumer Group Management**: Consumer coordination, offset resets (`earliest`, `latest`), and at-least-once commits.
+- **Confluent Schema Registry**: Automatic schema retrieval for Avro and Protobuf deserialization.
+- **Dead-Letter Queue (DLQ)**: Failed record fallback routing to prevent message processing failure from stalling ingestion.
+
+> [!NOTE]
+> **Operational Status:** Kafka source connectivity is fully implemented and operational, but it is currently **not the active deployment focus**. Present efforts are concentrated on the HTTP API proxy gateway and live vector/relational database writes.
+
+---
+
 ## Configuration
 
 ```yaml
@@ -284,6 +325,21 @@ audit:
 auth:
   jwt_secret: ${JWT_SECRET}
   idp_url: ""                   # optional: https://your-idp.com/userinfo
+
+# Synchronously write governed records to a data sink after each response.
+destination:
+  type: pgvector                # postgres | pgvector | weaviate | pinecone
+  settings:
+    host: localhost
+    port: "5433"
+    dbname: auvis
+    table: auvis_vectors
+    vector_field: embedding
+    vector_dim: "3"
+    auto_create_table: "true"
+  auth:
+    username: auvis
+    password: secret
 ```
 
 ---
@@ -354,6 +410,12 @@ The proxy's own processing overhead is sub-millisecond. End-to-end latency is do
 │  │  LLM Fallback (200ms timeout)              │          │
 │  └────────────────────────────────────────────┘          │
 │                                               │          │
+│  ┌────────────────────────────────────────────┼──────────┐
+│  │              DESTINATION SINKS             │          │
+│  │  Postgres | pgvector | Weaviate | Pinecone │          │
+│  │  Synchronous, fail-closed writing          │          │
+│  └────────────────────────────────────────────┤          │
+│                                               │          │
 │  ┌────────────────────────────────────────────┘          │
 │  │              AUDIT ENGINE                             │
 │  │  Async JSONL writer — never blocks hot path          │
@@ -378,13 +440,16 @@ The proxy's own processing overhead is sub-millisecond. End-to-end latency is do
 - Hot-reload, `auvis validate` CLI
 - Load tested at 1,710 req/sec, zero errors
 
-**v0.2.0 — In Progress**
-- Pipeline engine foundation (source → policy → transform → destination)
-- Confluence source connector
-- Pinecone + Weaviate + pgvector destinations
-- DSL v2 (source declarations, model annotations, tag-based field matching)
+**v0.2.5 — Complete ✓**
+- Ingestion pipeline abstraction layer (`Source` -> `Policy` -> `Transform` -> `Destination`)
+- Live Destination Sinks: Postgres, pgvector, Weaviate, and Pinecone support
+- Robust sandboxed Condition Evaluator (`contains`, `in`, `time.hour` support, with fail-closed security for indeterminate states)
+- Docker Orchestration support (`Dockerfile` + multi-service `docker-compose.yml`)
+- Consolidate integration tests to `tests/e2e` while keeping unit tests package-local
+- Kafka source connector driver (built and tested with Schema Registry, DLQ, offset commit support)
 
 **v0.3.0 — Planned**
+- Confluence source connector
 - PostgreSQL CDC connector
 - SharePoint source connector
 - Python SDK (`PipelineGuard`)

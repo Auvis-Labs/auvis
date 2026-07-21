@@ -1,0 +1,50 @@
+# -------------------------------------------------------
+# /users/ and /users/{id} policies
+# -------------------------------------------------------
+# admin    → full access, nothing masked
+# analyst  → name + region visible, email masked, SSN removed
+# auditor  → same as analyst
+# doctor   → same as analyst (users are not their domain)
+# no match → deny by default
+# -------------------------------------------------------
+
+policies:
+
+  - name: users-admin-full-access
+    match:
+      roles: [admin]
+      resource: /users
+    rules:
+      - field: "*"
+        action: allow
+    response:
+      data_path: "data"
+      array: true
+
+  - name: users-analyst-masked
+    priority: 10
+    match:
+      roles: [analyst, auditor, doctor]
+      resource: /users
+    rules:
+      - field: "email"
+        action: mask
+      - field: "ssn"
+        action: remove
+      - field: "phone"
+        action: mask
+      - field: "date_of_birth"
+        action: mask
+      - field: "address.street"
+        action: remove
+    response:
+      data_path: "data"
+      array: true
+
+  - name: users-deny-unmatched-roles
+    match:
+      roles: ["*"]
+      resource: /users
+    rules:
+      - field: "*"
+        action: deny

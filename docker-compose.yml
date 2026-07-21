@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────
+  # Postgres — serves both plain Postgres
+  # destination AND pgvector destination
+  # (pgvector is just Postgres + extension)
+  # ─────────────────────────────────────────
+  postgres:
+    image: ankane/pgvector:latest # postgres + pgvector extension pre-installed
+    container_name: auvis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: auvis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: auvis_demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U auvis" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─────────────────────────────────────────
+  # Auvis — the proxy + destination fan-out
+  # ─────────────────────────────────────────
+  auvis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auvis-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      AUVIS_PORT: "8080"
+      AUVIS_UPSTREAM: ${AUVIS_UPSTREAM}
+      AUVIS_AUDIT_FILE: "/data/audit.jsonl"
+      AUVIS_POLICIES_DIR: "/app/policies"
+
+      # Postgres destination
+      AUVIS_POSTGRES_HOST: postgres
+      AUVIS_POSTGRES_PORT: "5432"
+      AUVIS_POSTGRES_USER: auvis
+      AUVIS_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUVIS_POSTGRES_DB: auvis_demo
+
+      # pgvector destination (same instance, different table)
+      AUVIS_PGVECTOR_HOST: postgres
+      AUVIS_PGVECTOR_PORT: "5432"
+      AUVIS_PGVECTOR_USER: auvis
+      AUVIS_PGVECTOR_PASSWORD: ${POSTGRES_PASSWORD}
+      AUVIS_PGVECTOR_DB: auvis_demo
+
+      # Pinecone destination (external managed service)
+      AUVIS_PINECONE_API_KEY: ${PINECONE_API_KEY}
+      AUVIS_PINECONE_INDEX: ${PINECONE_INDEX}
+
+      # Weaviate destination (external managed service)
+      AUVIS_WEAVIATE_URL: ${WEAVIATE_URL}
+      AUVIS_WEAVIATE_API_KEY: ${WEAVIATE_API_KEY}
+
+      # PII scanner — LLM fallback
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    volumes:
+      - ./policies:/app/policies:ro
+      - audit-data:/data
+
+volumes:
+  pgdata:
+  audit-data:

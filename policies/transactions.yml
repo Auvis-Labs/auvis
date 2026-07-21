@@ -1,0 +1,52 @@
+# -------------------------------------------------------
+# /transactions/ and /transactions/{id} policies
+# -------------------------------------------------------
+# admin    → full access
+# analyst  → card_number masked, ip_address removed
+# auditor  → card_number masked, ip_address removed
+# doctor   → denied (not their domain)
+# -------------------------------------------------------
+
+policies:
+
+  - name: transactions-admin-full-access
+    match:
+      roles: [admin]
+      resource: /transactions
+    rules:
+      - field: "*"
+        action: allow
+    response:
+      data_path: "data"
+      array: true
+
+  - name: transactions-analyst-masked
+    match:
+      roles: [analyst, auditor]
+      resource: /transactions
+    rules:
+      - field: "card_number"
+        action: mask
+      - field: "ip_address"
+        action: remove
+      - field: "user_email"
+        action: mask
+    response:
+      data_path: "data"
+      array: true
+
+  - name: transactions-doctor-denied
+    match:
+      roles: [doctor]
+      resource: /transactions
+    rules:
+      - field: "*"
+        action: deny
+
+  - name: transactions-deny-unmatched-roles
+    match:
+      roles: ["*"]
+      resource: /transactions
+    rules:
+      - field: "*"
+        action: deny

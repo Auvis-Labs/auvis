@@ -1,0 +1,14 @@
+# -------------------------------------------------------
+# /llm/chat LLM interception policy
+# -------------------------------------------------------
+policies:
+  - name: llm-pii-intercept
+    priority: 100
+    match:
+      roles: [analyst]
+      resource: /llm/chat
+    rules:
+      - field: "*"
+        action: llm_intercept
+    response:
+      rehydrate: true

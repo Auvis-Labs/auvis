@@ -212,12 +212,58 @@ curl -s "http://localhost:8080/auvis/audit?role=analyst&limit=10"
    git checkout -b feature/your-awesome-feature
    ```
 2. Make your changes, keeping them focused and highly-tested.
-3. Commit with descriptive messages following conventional commits standard:
+3. Commit with descriptive messages following conventional commits standard and sign off with `-s`:
    ```bash
-   git commit -m "feat: implement response body compression support"
+   git commit -s -m "feat: implement response body compression support"
    ```
 4. Verify the tests pass and push to your fork:
    ```bash
    git push origin feature/your-awesome-feature
    ```
 5. Open a Pull Request detailing your changes and verification tests.
+
+---
+
+## 📜 Developer Certificate of Origin (DCO)
+
+All contributions to **Auvis** must be signed off under the [Developer Certificate of Origin (DCO 1.1)](https://developercertificate.org/). By signing off your commit, you certify that you have the legal right to submit the contribution under the project's Apache 2.0 license.
+
+### How to Sign Off Commits
+Use the `-s` / `--signoff` flag when running `git commit`:
+```bash
+git commit -s -m "fix(proxy): resolve reverse proxy connection leak"
+```
+
+This automatically appends a trailer line to your commit message:
+```text
+Signed-off-by: Jane Doe <jane.doe@example.com>
+```
+
+### DCO 1.1 Text
+```text
+Developer Certificate of Origin
+Version 1.1
+
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+
+(a) The contribution was created in whole or in part by me and I
+    have the right to submit it under the open source license
+    indicated in the file; or
+
+(b) The contribution is based upon previous work that, to the best
+    of my knowledge, is covered under an appropriate open source
+    license and I have the right under that license to submit that
+    work with modifications, whether compiled or uncompiled, in
+    whole or in part, submitted by me; or
+
+(c) The contribution was provided directly to me by some other
+    person who certified (a), (b) or (c) and I have not modified
+    it.
+
+(d) I understand and agree that this project and the contribution
+    are public and that a record of the contribution (including all
+    personal information I submit with it, including my sign-off) is
+    maintained indefinitely and may be redistributed consistent with
+    this project or the open source license(s) involved.
+```
+

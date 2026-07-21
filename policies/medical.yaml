@@ -1,0 +1,63 @@
+# -------------------------------------------------------
+# /medical/records and /medical/records/{id} policies
+# -------------------------------------------------------
+# doctor   → full access
+# auditor  → diagnosis + medications + notes removed,
+#            SSN removed, insurance_id masked
+# admin    → denied (medical data requires clinical role)
+# analyst  → denied
+# -------------------------------------------------------
+
+policies:
+
+  - name: medical-doctor-full-access
+    match:
+      roles: [doctor]
+      resource: /medical/records
+    rules:
+      - field: "*"
+        action: allow
+    response:
+      data_path: "data"
+      array: true
+
+  - name: medical-auditor-restricted
+    match:
+      roles: [auditor]
+      resource: /medical/records
+    rules:
+      - field: "diagnosis"
+        action: remove
+      - field: "medications"
+        action: remove
+      - field: "notes"
+        action: remove
+      - field: "ssn"
+        action: remove
+      - field: "date_of_birth"
+        action: mask
+      - field: "patient_email"
+        action: mask
+      - field: "insurance_id"
+        action: mask
+      - field: "doctor_email"
+        action: mask
+    response:
+      data_path: "data"
+      array: true
+
+  - name: medical-denied-all-others
+    match:
+      roles: [admin, analyst]
+      resource: /medical/records
+    rules:
+      - field: "*"
+        action: deny
+
+  - name: medical-deny-unmatched-roles
+    match:
+      roles: ["*"]
+      resource: /medical/records
+    rules:
+      - field: "*"
+        action: deny

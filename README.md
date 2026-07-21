@@ -6,10 +6,11 @@
 
 Govern your data before it reaches your AI — so your AI projects don't die in the security review.
 
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.2.5-green?style=flat)]()
-[![Status](https://img.shields.io/badge/status-active%20development-orange?style=flat)]()
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat)](LICENSE)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/cridiv/Auvis/ci.yml?branch=main&logo=github&label=build&style=flat)](https://github.com/cridiv/Auvis/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Auvis-Labs/auvis?style=flat)](https://goreportcard.com/report/github.com/Auvis-Labs/auvis)
+[![Version](https://img.shields.io/badge/version-v0.2.6-green?style=flat)](https://github.com/cridiv/Auvis/releases)
 
 </div>
 
@@ -376,16 +377,18 @@ Benchmarked on a dev laptop (Apple M-series) against a Go upstream server:
 
 | Metric | Result |
 |---|---|
-| Requests/sec | 1,710 |
-| Average latency | 28ms |
-| p50 | 23ms |
-| p95 | 60ms |
-| Fastest single request | 0.9ms |
+| Requests/sec | 6,574 |
+| Average latency | 7.4ms |
+| p50 | 6.6ms |
+| p95 | 16.2ms |
+| Fastest single request | 0.2ms |
 | Error rate (10,000 requests) | 0% |
 
 The proxy's own processing overhead is sub-millisecond. End-to-end latency is dominated by upstream response time. Production hardware on a real upstream will significantly exceed these numbers.
 
-*Tested with `hey -n 10000 -c 50` in `regex_only` mode against a Go mock upstream.*
+This figure is **3.8× higher than the v0.1.0 baseline of 1,710 req/sec**, and the delta is fully explained by four changes shipped in v0.2.6: `httputil.ReverseProxy` is now cached per upstream URL via `sync.Map` instead of being rebuilt on every request; response buffers are reused across requests via `sync.Pool`; per-request and per-record `slog.Info` calls in the transform hot path were downgraded to `slog.Debug`, eliminating log-writer mutex contention under concurrent load; and the audit logger's per-entry `fsync` was removed — it was issuing a full kernel disk flush after every write, serializing the background writer goroutine under sustained load.
+
+*Tested with `hey -n 10000 -c 50` with full policy enforcement (field masking, PII scanning, audit logging) against a Go mock upstream.*
 
 ---
 
@@ -438,7 +441,6 @@ The proxy's own processing overhead is sub-millisecond. End-to-end latency is do
 - Wildcard role policies with specificity precedence
 - Async audit logger with log rotation
 - Hot-reload, `auvis validate` CLI
-- Load tested at 1,710 req/sec, zero errors
 
 **v0.2.5 — Complete ✓**
 - Ingestion pipeline abstraction layer (`Source` -> `Policy` -> `Transform` -> `Destination`)
@@ -447,6 +449,14 @@ The proxy's own processing overhead is sub-millisecond. End-to-end latency is do
 - Docker Orchestration support (`Dockerfile` + multi-service `docker-compose.yml`)
 - Consolidate integration tests to `tests/e2e` while keeping unit tests package-local
 - Kafka source connector driver (built and tested with Schema Registry, DLQ, offset commit support)
+
+**v0.2.6 — Complete ✓**
+- Reverse proxy cache — `httputil.ReverseProxy` built once per upstream URL via `sync.Map`; eliminates per-request allocation of proxy struct, `url.Parse`, and three closure captures
+- Response buffer pool — `bytes.Buffer` reused across requests via `sync.Pool`, cutting GC pressure under concurrent load
+- `strings.Builder` pooled in the array transform path
+- Hot-path log levels — per-request and per-record `slog.Info` calls downgraded to `slog.Debug`, eliminating log-writer mutex contention at high concurrency
+- Audit logger — removed per-entry `fsync` that was serializing the background writer goroutine under sustained load
+- Throughput: **6,574 req/sec** with full policy enforcement, field masking, PII scanning, and audit logging on a dev laptop — up from 1,710 req/sec
 
 **v0.3.0 — Planned**
 - Confluence source connector
@@ -476,9 +486,18 @@ GDPR requires data minimization. HIPAA requires PHI access logs. PCI-DSS require
 
 ---
 
+## Open Source Commitment
+
+Auvis is an open-source-first project licensed under [Apache 2.0](LICENSE).
+
+- **Open Source Forever**: The core gateway proxy, policy evaluation engine, transformation pipeline, PII scanner, row-level filtering, and structured audit logging are open source and will remain free and open forever.
+- **Future Commercial Extensions**: Hosted services or enterprise features (such as a managed control plane, enterprise SSO/SAML integrations, and automated compliance report generators) may be offered as commercial products in the future.
+
+---
+
 ## License
 
-MIT — see [LICENSE](LICENSE)
+Apache 2.0 — see [LICENSE](LICENSE)
 
 ---
 

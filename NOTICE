@@ -1,0 +1,54 @@
+Auvis
+Copyright 2026 Auvis Labs
+
+This product includes software developed by third parties:
+
+- github.com/beorn7/perks (MIT) - https://github.com/beorn7/perks
+- github.com/briandowns/spinner (Apache-2.0) - https://github.com/briandowns/spinner
+- github.com/cespare/xxhash/v2 (MIT) - https://github.com/cespare/xxhash/v2
+- github.com/fatih/color (MIT) - https://github.com/fatih/color
+- github.com/fsnotify/fsnotify (BSD-3-Clause) - https://github.com/fsnotify/fsnotify
+- github.com/go-viper/mapstructure/v2 (MIT) - https://github.com/go-viper/mapstructure/v2
+- github.com/golang/protobuf (BSD-3-Clause) - https://github.com/golang/protobuf
+- github.com/golang/snappy (BSD-3-Clause) - https://github.com/golang/snappy
+- github.com/hamba/avro/v2 (MIT) - https://github.com/hamba/avro/v2
+- github.com/inconshreveable/mousetrap (Apache-2.0) - https://github.com/inconshreveable/mousetrap
+- github.com/jackc/pgpassfile (MIT) - https://github.com/jackc/pgpassfile
+- github.com/jackc/pgservicefile (MIT) - https://github.com/jackc/pgservicefile
+- github.com/jackc/pgx/v5 (MIT) - https://github.com/jackc/pgx/v5
+- github.com/jackc/puddle/v2 (MIT) - https://github.com/jackc/puddle/v2
+- github.com/jhump/protoreflect (MIT) - https://github.com/jhump/protoreflect
+- github.com/joho/godotenv (MIT) - https://github.com/joho/godotenv
+- github.com/json-iterator/go (MIT) - https://github.com/json-iterator/go
+- github.com/klauspost/compress (Apache-2.0) - https://github.com/klauspost/compress
+- github.com/linkedin/goavro/v2 (Apache-2.0) - https://github.com/linkedin/goavro/v2
+- github.com/mattn/go-colorable (MIT) - https://github.com/mattn/go-colorable
+- github.com/mattn/go-isatty (MIT) - https://github.com/mattn/go-isatty
+- github.com/modern-go/concurrent (Apache-2.0) - https://github.com/modern-go/concurrent
+- github.com/modern-go/reflect2 (Apache-2.0) - https://github.com/modern-go/reflect2
+- github.com/munnerz/goautoneg (BSD-3-Clause) - https://github.com/munnerz/goautoneg
+- github.com/petermattis/goid (Apache-2.0) - https://github.com/petermattis/goid
+- github.com/pierrec/lz4/v4 (BSD-3-Clause) - https://github.com/pierrec/lz4/v4
+- github.com/prometheus/client_golang (Apache-2.0) - https://github.com/prometheus/client_golang
+- github.com/prometheus/client_model (Apache-2.0) - https://github.com/prometheus/client_model
+- github.com/prometheus/common (Apache-2.0) - https://github.com/prometheus/common
+- github.com/prometheus/procfs (Apache-2.0) - https://github.com/prometheus/procfs
+- github.com/riferrei/srclient (Apache-2.0) - https://github.com/riferrei/srclient
+- github.com/santhosh-tekuri/jsonschema/v5 (Apache-2.0) - https://github.com/santhosh-tekuri/jsonschema/v5
+- github.com/segmentio/kafka-go (MIT) - https://github.com/segmentio/kafka-go
+- github.com/spf13/cobra (Apache-2.0) - https://github.com/spf13/cobra
+- github.com/spf13/pflag (BSD-3-Clause) - https://github.com/spf13/pflag
+- github.com/tidwall/gjson (MIT) - https://github.com/tidwall/gjson
+- github.com/tidwall/match (MIT) - https://github.com/tidwall/match
+- github.com/tidwall/pretty (MIT) - https://github.com/tidwall/pretty
+- github.com/tidwall/sjson (MIT) - https://github.com/tidwall/sjson
+- github.com/xdg-go/pbkdf2 (Apache-2.0) - https://github.com/xdg-go/pbkdf2
+- github.com/xdg-go/scram (Apache-2.0) - https://github.com/xdg-go/scram
+- github.com/xdg-go/stringprep (Apache-2.0) - https://github.com/xdg-go/stringprep
+- go.yaml.in/yaml/v2 (Apache-2.0) - https://github.com/go-yaml/yaml
+- golang.org/x/sync (BSD-3-Clause) - https://github.com/golang/sync
+- golang.org/x/sys (BSD-3-Clause) - https://github.com/golang/sys
+- golang.org/x/term (BSD-3-Clause) - https://github.com/golang/term
+- golang.org/x/text (BSD-3-Clause) - https://github.com/golang/text
+- google.golang.org/protobuf (BSD-3-Clause) - https://github.com/protocolbuffers/protobuf-go
+- gopkg.in/yaml.v3 (MIT) - https://github.com/go-yaml/yaml

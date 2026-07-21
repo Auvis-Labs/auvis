@@ -1,0 +1,106 @@
+# auvis.yaml — AUVIS gateway configuration
+# Documentation: https://auvis.io/docs/configuration
+#
+# This file configures the AUVIS gateway for this project.
+# Define WHERE the gateway runs and HOW it behaves.
+# Policies live in ./policies/ — one file per domain.
+
+version: "1"
+
+gateway:
+  # Port the AUVIS gateway listens on.
+  # Your application routes requests through this port.
+  port: 8080
+  upstream: "http://localhost:8000"
+
+  # Directory containing your policy YAML files.
+  # All .yaml files in this directory are loaded and merged at startup.
+  # The gateway watches this directory — edits apply instantly, no restart needed.
+  policies_dir: ./policies
+
+  # Audit log file path.
+  # Every request is logged here as newline-delimited JSON (JSONL).
+  # Use 'auvis logs' to query it, or point any log aggregator at this file.
+  audit_file: ./audit.jsonl
+
+  # Maximum audit log file size before rotation (in MB).
+  audit_max_size_mb: 100
+
+  # Upstream request timeout in seconds.
+  # Requests to your upstream APIs that exceed this are cancelled.
+  upstream_timeout_seconds: 10
+
+  # (Optional) Restrict which upstream hosts AUVIS is allowed to forward to.
+  # Leave empty to allow any upstream (default for development).
+  # Strongly recommended to populate in production.
+  # allowed_upstreams:
+  #   - https://api.openai.com
+  #   - https://api.anthropic.com
+  #   - http://your-internal-api.com
+
+  # (Optional) Destinations — synchronously write governed records to one or more data sinks.
+  # After each governed response, all configured destinations receive the record before
+  # the response is returned to the client. Writes are fail-closed: if any destination
+  # fails, the client receives a 500 and the response is withheld.
+  #
+  # Multi-destination example (Postgres + pgvector fan-out):
+  # destinations:
+  #   - type: postgres
+  #     settings:
+  #       host: localhost
+  #       port: "5432"
+  #       dbname: auvis
+  #       table: auvis_records
+  #       sslmode: disable
+  #       auto_create_table: "true"
+  #     auth:
+  #       username: auvis
+  #       password: secret
+  #
+  #   - type: pgvector
+  #     settings:
+  #       host: localhost
+  #       port: "5433"
+  #       dbname: auvis
+  #       table: auvis_vectors
+  #       vector_field: embedding
+  #       vector_dim: "1536"
+  #       auto_create_table: "true"
+  #     auth:
+  #       username: auvis
+  #       password: secret
+  #
+  # Single-destination example (legacy format — still supported):
+  # destination:
+  #   type: postgres
+  #   settings:
+  #     host: localhost
+  #     port: "5432"
+  #     dbname: auvis
+  #     table: auvis_records
+  #     sslmode: disable
+  #     auto_create_table: "true"
+  #   auth:
+  #     username: auvis
+  #     password: secret
+  #
+  # Pinecone destination:
+  # destinations:
+  #   - type: pinecone
+  #     settings:
+  #       index_host: my-index-abcd.svc.environment.pinecone.io
+  #       vector_field: embedding  # the field in response data containing the float array
+  #     auth:
+  #       password: <pinecone_api_key>
+  #
+  # Weaviate destination:
+  # destinations:
+  #   - type: weaviate
+  #     settings:
+  #       host: http://localhost:8081
+  #       class: AuvisRecord
+  #       vector_field: embedding
+  #       auto_create_class: "true"
+  #     auth:
+  #       password: <weaviate_api_key>
+

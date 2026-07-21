@@ -1,0 +1,71 @@
+name: 🐛 Bug Report
+description: Report a reproducible bug or unexpected behavior in Auvis
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please ensure this is not a security issue.
+        For security issues or PII evasion reports, please follow our [Security Policy](SECURITY.md).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what happened...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Auvis Version
+      description: Version of Auvis you are running (`auvis version` or commit hash).
+      placeholder: e.g. v0.2.6 or main branch
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, deployment type (Binary CLI, Docker, Kubernetes).
+      placeholder: e.g. macOS Sequoia / Docker Compose / Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps or commands to reproduce the issue.
+      placeholder: |
+        1. Run 'auvis dev' with policy...
+        2. Send HTTP request 'curl -H ...'
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: policy_snippet
+    attributes:
+      label: Relevant Policy / Configuration (Optional)
+      description: Relevant `auvis.yaml` or policy YAML snippet (scrub any real secrets/keys!).
+      render: yaml
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Command Output (Optional)
+      description: Relevant terminal or audit log output.
+      render: text

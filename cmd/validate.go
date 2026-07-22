@@ -204,6 +204,47 @@ func runValidate() error {
 	return nil
 }
 
+// performPolicyValidation validates all policy files in policiesDir syntactically and semantically.
+// Returns (errors, warnings, totalValidPolicies).
+func performPolicyValidation(policiesDir string) ([]validationError, []validationWarning, int) {
+	var errors []validationError
+	var warnings []validationWarning
+
+	dirPath := resolvePath(policiesDir)
+	files, err := discoverPolicyFiles(dirPath)
+	if err != nil {
+		errors = append(errors, validationError{
+			File:    policiesDir,
+			Field:   "directory",
+			Message: fmt.Sprintf("policies directory not found: %s", dirPath),
+		})
+		return errors, warnings, 0
+	}
+
+	if len(files) == 0 {
+		warnings = append(warnings, validationWarning{
+			File:    policiesDir,
+			Field:   "directory",
+			Message: fmt.Sprintf("no .yaml files found in %s", policiesDir),
+		})
+		return errors, warnings, 0
+	}
+
+	seenNames := make(map[string]string)
+	seenPriorities := make(map[string]map[int]string)
+	seenMatches := make(map[string]map[int]string)
+	var allValidPolicies []policyEntry
+
+	for _, f := range files {
+		fileErrors, fileWarnings, validInFile := validatePolicyFile(f, seenNames, seenPriorities, seenMatches)
+		errors = append(errors, fileErrors...)
+		warnings = append(warnings, fileWarnings...)
+		allValidPolicies = append(allValidPolicies, validInFile...)
+	}
+
+	return errors, warnings, len(allValidPolicies)
+}
+
 // ── Gateway config validation ─────────────────────────────────
 
 func validateGatewayConfig(cfgPath string) ([]validationError, []validationWarning) {

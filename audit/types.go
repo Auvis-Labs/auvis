@@ -34,8 +34,9 @@ type Entry struct {
 
 	// Destination tracking — multi-destination aware.
 	// DestinationWritten is true if ALL configured destinations confirmed a successful write.
-	// For single-destination deployments this behaves identically to the previous bool field.
-	DestinationWritten  bool         `json:"destination_written,omitempty"`
+	// Explicitly serialized as false when a write fails (no omitempty).
+	DestinationWritten  bool         `json:"destination_written"`
+	DestinationError    string       `json:"destination_error,omitempty"`
 	DestinationsWritten int          `json:"destinations_written,omitempty"`
 	DestinationsFailed  int          `json:"destinations_failed,omitempty"`
 	DestinationMs       int64        `json:"destination_ms,omitempty"`

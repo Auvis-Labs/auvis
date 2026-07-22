@@ -116,9 +116,21 @@ ENV/
 env/
 python-venv/
 
-# Agents
-.continue/
-
-opensource_prep.md
-
+# ------------------------------------------
+# 5. Documentation Files
+# ------------------------------------------
+docs/
 docs/*
+opensource_prep.md
+auvis_beginners_guide/
+Auvis_Go_Beginner_Guide/
+
+# ------------------------------------------
+# 6. Test Files & Test Directories
+# ------------------------------------------
+*_test*
+*_test.go
+*_test.py
+tests/
+test-cmd/
+test-server/

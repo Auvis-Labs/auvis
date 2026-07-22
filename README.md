@@ -14,7 +14,7 @@ Govern your data before it reaches your AI — so your AI projects don't die in 
 
 </div>
 
----
+![Auvis](public/auvis_gith.png)
 
 ## The Problem
 
@@ -91,8 +91,9 @@ Zero changes to your AI application code.
 - Wildcard role policies (`*`) as catch-all fallback rules
 - Specificity-based precedence — explicit role always beats wildcard
 
-### Destination Sinks (Live)
-- **Synchronous Fan-out**: Synchronously commits governed payloads to databases. If write fails, the response is blocked (fail-closed) to prevent leaks.
+### Destination Sinks & Decoupled Availability
+- **Decoupled Proxy Availability**: Primary gateway governance is decoupled from secondary storage sink performance. The client always receives their governed response (`HTTP 200 OK`) without latency degradation or blocking, even if a destination database is undergoing an outage.
+- **Circuit Breakers & Audit Visibility**: Independent 3-state circuit breakers (`Closed`, `Open`, `Half-Open`) guard every destination (Postgres, pgvector, Weaviate, Pinecone). If a destination write fails or trips to `Open` state, Auvis fast-fails the write (`<0.1ms`), logs `slog.Warn`, and explicitly records `"destination_written": false` alongside `"destination_error": "<reason>"` in `audit.jsonl` for post-incident compliance reconciliation.
 - **Postgres / pgvector**: Auto-provisions tables and enables `vector` extension natively to support SQL similarity search (`<->`).
 - **Weaviate**: Auto-creates class schemas, sanitizes names to PascalCase, and uses deterministic UUIDv5 hashing for retry safety.
 - **Pinecone**: Flat-maps nested payloads automatically to store key-value metadata alongside vector arrays.

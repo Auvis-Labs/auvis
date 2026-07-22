@@ -39,9 +39,18 @@ gateway:
   # Maximum audit log file size before rotation (in MB).
   audit_max_size_mb: 100
 
+  # Maximum duration in seconds to wait for in-flight request draining during SIGTERM shutdown.
+  shutdown_timeout_seconds: 30
+
   # Upstream request timeout in seconds.
   # Requests to your upstream APIs that exceed this are cancelled.
   upstream_timeout_seconds: 10
+
+  # (Optional) Circuit Breaker configuration defaults for destination write protection.
+  # Trips to Open state after max_failures consecutive errors, fast-failing all writes during cooldown_seconds.
+  circuit_breaker:
+    max_failures: 5
+    cooldown_seconds: 30
 
   # (Optional) Restrict which upstream hosts AUVIS is allowed to forward to.
   # Leave empty to allow any upstream (default for development).

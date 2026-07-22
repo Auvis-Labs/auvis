@@ -336,6 +336,7 @@ func Handler(
 		var destResults []audit.DestResult
 		var destsWritten, destsFailed int
 		var destMs int64
+		var destErrStr string
 		if dest != nil {
 			// Parse the governed response body into a structured map so the JSONB
 			// column is queryable in Postgres rather than opaque.
@@ -399,58 +400,44 @@ func Handler(
 						DurationMs: r.DurationMs,
 					})
 				}
-			} else if writeErr != nil {
-				// Bare destination returned a plain error.
-				destsFailed++
-				destResults = append(destResults, audit.DestResult{
-					Type:       "unknown",
-					Written:    false,
-					ErrorMsg:   writeErr.Error(),
-					DurationMs: destMs,
-				})
 			} else {
-				destsWritten++
+				destName := "destination"
+				if bd, ok := dest.(*destination.BreakerDestination); ok {
+					destName = bd.Name
+				}
+				if writeErr != nil {
+					destsFailed++
+					destResults = append(destResults, audit.DestResult{
+						Type:       destName,
+						Written:    false,
+						ErrorMsg:   writeErr.Error(),
+						DurationMs: destMs,
+					})
+				} else {
+					destsWritten++
+					destResults = append(destResults, audit.DestResult{
+						Type:       destName,
+						Written:    true,
+						DurationMs: destMs,
+					})
+				}
 			}
 
 			if writeErr != nil {
-				slog.Error("Destination write failed — returning 500 (fail-closed)",
+				destErrStr = writeErr.Error()
+				slog.Warn("Destination write failed — delivering governed response to client (decoupled destination failure)",
 					"error", writeErr,
 					"request_id", reqCtx.RequestID,
+					"destinations_written", destsWritten,
+					"destinations_failed", destsFailed,
 				)
-				auditLog.Write(audit.Entry{
-					Timestamp:           time.Now().UTC(),
-					RequestID:           reqCtx.RequestID,
-					UserID:              reqCtx.UserID,
-					UserRole:            reqCtx.UserRole,
-					Resource:            reqCtx.Resource,
-					Method:              reqCtx.Method,
-					PoliciesApplied:     summary.PoliciesApplied,
-					Priority:            summary.Priority,
-					ComplianceTags:      summary.ComplianceTags,
-					ConditionEvaluated:  summary.ConditionEvaluated,
-					FieldsMasked:        summary.FieldsMasked,
-					FieldsRemoved:       summary.FieldsRemoved,
-					FieldsAllowed:       summary.FieldsAllowed,
-					FieldsDenied:        summary.FieldsDenied,
-					ResponseDenied:      summary.ResponseDenied,
-					PiiTypesDetected:    summary.PiiTypesDetected,
-					RowsFiltered:        summary.RowsFiltered,
-					UpstreamStatus:      info.statusCode,
-					DurationMS:          time.Since(start).Milliseconds(),
-					DestinationWritten:  false,
-					DestinationsWritten: destsWritten,
-					DestinationsFailed:  destsFailed,
-					DestinationMs:       destMs,
-					DestinationResults:  destResults,
-				})
-				http.Error(w, "destination write failed", http.StatusInternalServerError)
-				return
+			} else {
+				slog.Info("Destination write succeeded",
+					"request_id", reqCtx.RequestID,
+					"destinations_written", destsWritten,
+					"destination_ms", destMs,
+				)
 			}
-			slog.Info("Destination write succeeded",
-				"request_id", reqCtx.RequestID,
-				"destinations_written", destsWritten,
-				"destination_ms", destMs,
-			)
 		}
 
 		responseStatus := info.statusCode
@@ -482,7 +469,8 @@ func Handler(
 			RowsFiltered:        summary.RowsFiltered,
 			UpstreamStatus:      info.statusCode,
 			DurationMS:          time.Since(start).Milliseconds(),
-			DestinationWritten:  destsWritten > 0,
+			DestinationWritten:  destsWritten > 0 && destsFailed == 0,
+			DestinationError:    destErrStr,
 			DestinationsWritten: destsWritten,
 			DestinationsFailed:  destsFailed,
 			DestinationMs:       destMs,

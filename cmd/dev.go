@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -21,6 +23,12 @@ import (
 	"github.com/Auvis-Labs/auvis/proxy"
 	"github.com/Auvis-Labs/auvis/transform"
 )
+
+var skipDestinationCheck bool
+
+func init() {
+	devCmd.Flags().BoolVar(&skipDestinationCheck, "skip-destination-check", false, "Skip startup reachability/auth validation for configured destinations")
+}
 
 var devCmd = &cobra.Command{
 	Use:   "dev",
@@ -44,6 +52,18 @@ func runDev() error {
 
 	if cfg.UpstreamURL == "" {
 		return fmt.Errorf("AUVIS_UPSTREAM environment variable is required")
+	}
+
+	// --- Automatic Policy Validation & Syntax Check ---
+	valErrors, valWarnings, _ := performPolicyValidation(cfg.PoliciesDir)
+	for _, w := range valWarnings {
+		slog.Warn("Policy validation warning", "file", w.File, "policy", w.Policy, "field", w.Field, "message", w.Message)
+	}
+	if len(valErrors) > 0 {
+		for _, err := range valErrors {
+			slog.Error("Policy validation error", "file", err.File, "policy", err.Policy, "field", err.Field, "message", err.Message)
+		}
+		return fmt.Errorf("FATAL: Policy validation failed on startup (%d errors found): %s", len(valErrors), valErrors[0].Message)
 	}
 
 	// --- Audit logger ---
@@ -72,19 +92,22 @@ func runDev() error {
 	// Supports any number of destinations configured under `destinations:` in auvis.yaml.
 	// Falls back gracefully to nil (no destination) if none are configured.
 	var dest pipeline.Destination
+	var connectedNames []string
 	if len(cfg.Destinations) > 0 {
-		dests, names, err := buildDestinations(cfg.Destinations)
+		dests, names, cbConfigs, err := buildDestinations(cfg.Destinations, skipDestinationCheck)
 		if err != nil {
-			return err
+			slog.Error("FATAL: Destination startup validation failed — aborting gateway start", "error", err)
+			return fmt.Errorf("FATAL: Destination startup validation failed — aborting gateway start: %w", err)
 		}
+		connectedNames = names
 
 		if len(dests) == 1 {
-			// Single destination — use directly, no MultiDestination wrapper overhead.
-			dest = dests[0]
-			slog.Info("Destination configured", "type", names[0])
-		} else {
-			// Multiple destinations — wrap in a fan-out MultiDestination.
-			dest = destination.NewMultiDestination(dests, names)
+			// Single destination — use BreakerDestination directly with configured parameters.
+			dest = destination.NewBreakerDestination(dests[0], names[0], cbConfigs[0])
+			slog.Info("Destination configured", "type", names[0], "max_failures", cbConfigs[0].MaxFailures, "cooldown", cbConfigs[0].Cooldown.String())
+		} else if len(dests) > 1 {
+			// Multiple destinations — wrap in a fan-out MultiDestination with per-destination circuit breakers.
+			dest = destination.NewMultiDestination(dests, names, cbConfigs...)
 			slog.Info("Destinations configured", "count", len(dests), "types", names)
 		}
 	}
@@ -105,11 +128,28 @@ func runDev() error {
 	// Internal AUVIS endpoints — registered before the catch-all proxy
 	audit.RegisterHandlers(mux, cfg.AuditFile, startTime, &requestCount, store)
 
-	// Health check endpoint
+	// Health check endpoint — exposes gateway status and per-destination circuit breaker states
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		cbStates := make(map[string]string)
+		if exporter, ok := dest.(interface{ GetBreakerStates() map[string]string }); ok {
+			cbStates = exporter.GetBreakerStates()
+		}
+
+		resp := map[string]any{
+			"status":           "ok",
+			"service":          "auvis",
+			"circuit_breakers": cbStates,
+		}
+
+		b, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok","service":"auvis"}`))
+		_, _ = w.Write(b)
 	})
 
 	// Catch-all proxy handler
@@ -124,6 +164,9 @@ func runDev() error {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
+	// Print clean startup summary on success
+	printStartupSummary(cfg.Port, cfg.UpstreamURL, n, connectedNames, skipDestinationCheck, cfg.AuditFile)
+
 	go func() {
 		slog.Info("AUVIS gateway server running", "port", cfg.Port, "upstream", cfg.UpstreamURL)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -132,14 +175,29 @@ func runDev() error {
 		}
 	}()
 
-	<-stop
-	slog.Info("Initiating graceful gateway shutdown")
+	shutdownSec := cfg.ShutdownTimeoutSec
+	if shutdownSec <= 0 {
+		shutdownSec = 30
+	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	<-stop
+	slog.Info("Initiating graceful gateway shutdown", "timeout_seconds", shutdownSec)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownSec)*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Shutdown process encountered an error", "error", err)
+		slog.Warn("Graceful shutdown timeout exceeded — force-exiting server",
+			"timeout_seconds", shutdownSec,
+			"error", err,
+			"total_requests_processed", atomic.LoadInt64(&requestCount),
+		)
+	}
+
+	if dest != nil {
+		if err := dest.Flush(); err != nil {
+			slog.Error("Failed to flush destination buffer during shutdown", "error", err)
+		}
 	}
 
 	auditLog.Close()
@@ -149,26 +207,80 @@ func runDev() error {
 }
 
 // buildDestinations constructs and connects all configured destination drivers.
-// Returns parallel slices of connected destinations and their type labels.
+// Returns parallel slices of connected destinations, their type labels, and circuit breaker configs.
 // All successfully connected destinations are registered for defer Close via the caller.
-func buildDestinations(dcs []config.DestinationConfig) ([]pipeline.Destination, []string, error) {
+func buildDestinations(dcs []config.DestinationConfig, skipCheck bool) ([]pipeline.Destination, []string, []destination.CBConfig, error) {
 	dests := make([]pipeline.Destination, 0, len(dcs))
 	names := make([]string, 0, len(dcs))
+	cbConfigs := make([]destination.CBConfig, 0, len(dcs))
 
 	for i, dc := range dcs {
 		d, err := buildDestination(dc)
 		if err != nil {
-			return nil, nil, fmt.Errorf("destination[%d] %s: %w", i, dc.Type, err)
+			for _, prev := range dests {
+				_ = prev.Close()
+			}
+			return nil, nil, nil, fmt.Errorf("destination[%d] (%s) configuration invalid: %w", i, dc.Type, err)
 		}
 		if err := d.Connect(); err != nil {
-			return nil, nil, fmt.Errorf("destination[%d] %s connect: %w", i, dc.Type, err)
+			if skipCheck {
+				slog.Warn("Destination startup connection check failed — proceeding anyway (--skip-destination-check enabled)",
+					"destination_index", i,
+					"destination_type", dc.Type,
+					"error", err,
+				)
+			} else {
+				for _, prev := range dests {
+					_ = prev.Close()
+				}
+				slog.Error("Destination failed startup reachability/auth check",
+					"destination_index", i,
+					"destination_type", dc.Type,
+					"error", err,
+				)
+				return nil, nil, nil, fmt.Errorf("destination[%d] (%s) failed startup connection check: %w", i, dc.Type, err)
+			}
 		}
 
 		dests = append(dests, d)
 		names = append(names, dc.Type)
+
+		maxFailures := dc.CircuitBreaker.MaxFailures
+		if maxFailures <= 0 {
+			maxFailures = 5
+		}
+		cooldownSec := dc.CircuitBreaker.CooldownSeconds
+		if cooldownSec <= 0 {
+			cooldownSec = 30
+		}
+		cbConfigs = append(cbConfigs, destination.CBConfig{
+			MaxFailures: maxFailures,
+			Cooldown:    time.Duration(cooldownSec) * time.Second,
+		})
 	}
 
-	return dests, names, nil
+	return dests, names, cbConfigs, nil
+}
+
+func printStartupSummary(port, upstream string, policyCount int, destNames []string, skipDestCheck bool, auditFile string) {
+	destStr := "None configured"
+	if len(destNames) > 0 {
+		destStr = fmt.Sprintf("%d active (%s)", len(destNames), strings.Join(destNames, ", "))
+		if skipDestCheck {
+			destStr += " [skip-destination-check]"
+		}
+	}
+
+	fmt.Println()
+	bold.Println(" AUVIS Gateway — Startup Summary")
+	separator()
+	fmt.Printf("  • Listening Port:     :%s\n", port)
+	fmt.Printf("  • Upstream Target:    %s\n", upstream)
+	fmt.Printf("  • Policies Loaded:    %d policy file(s) validated & active\n", policyCount)
+	fmt.Printf("  • Destination Sinks:  %s\n", destStr)
+	fmt.Printf("  • Audit Log File:     %s\n", auditFile)
+	separator()
+	fmt.Println()
 }
 
 // buildDestination constructs (but does not connect) a single destination driver from config.

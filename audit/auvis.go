@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/Auvis-Labs/auvis/policy"
 )
 
@@ -20,9 +22,13 @@ import (
 //	GET /auvis/audit?user=user-123  — filter by user
 //	GET /auvis/audit?resource=/users
 //	GET /auvis/status               — uptime + request count
+//	GET /metrics                    — Prometheus metrics endpoint
+//	GET /auvis/metrics              — Prometheus metrics endpoint
 func RegisterHandlers(mux *http.ServeMux, auditPath string, startTime time.Time, requestCounter *int64, store *policy.Store) {
 	mux.HandleFunc("/auvis/audit", auditHandler(auditPath))
 	mux.HandleFunc("/auvis/status", statusHandler(startTime, requestCounter, store))
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/auvis/metrics", promhttp.Handler())
 }
 
 func auditHandler(auditPath string) http.HandlerFunc {

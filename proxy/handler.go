@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/Auvis-Labs/auvis/audit"
 	"github.com/Auvis-Labs/auvis/config"
+	"github.com/Auvis-Labs/auvis/metrics"
 	"github.com/Auvis-Labs/auvis/pipeline"
 	"github.com/Auvis-Labs/auvis/pipeline/destination"
 	"github.com/Auvis-Labs/auvis/pii"
@@ -43,6 +45,28 @@ func newStreamCapture() *streamCapture {
 	return &streamCapture{
 		header:     make(http.Header),
 		statusCode: http.StatusOK,
+	}
+}
+
+// Recovery is a middleware wrapper that catches panics in HTTP request handling,
+// logs the stack trace with slog.Error, and returns an HTTP 500 status code
+// to prevent crashing the main proxy process.
+func Recovery(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rErr := recover(); rErr != nil {
+				metrics.IncPanic("proxy_middleware")
+				stack := string(debug.Stack())
+				slog.Error("Panic recovered in HTTP handler middleware",
+					"error", rErr,
+					"stack", stack,
+					"method", r.Method,
+					"url", r.URL.String(),
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
 	}
 }
 
@@ -128,6 +152,20 @@ func Handler(
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rErr := recover(); rErr != nil {
+				metrics.IncPanic("proxy_handler")
+				stack := string(debug.Stack())
+				slog.Error("Panic recovered in HTTP proxy handler",
+					"error", rErr,
+					"stack", stack,
+					"method", r.Method,
+					"url", r.URL.String(),
+				)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+		}()
+
 		start := time.Now()
 		atomic.AddInt64(requestCount, 1)
 
@@ -324,7 +362,22 @@ func Handler(
 			}
 
 			destStart := time.Now()
-			writeErr := dest.WriteRecord(rec)
+			var writeErr error
+			func() {
+				defer func() {
+					if rErr := recover(); rErr != nil {
+						metrics.IncPanic("destination_write")
+						stack := string(debug.Stack())
+						writeErr = fmt.Errorf("panic in destination write call: %v", rErr)
+						slog.Error("Panic recovered during destination write call",
+							"error", writeErr,
+							"stack", stack,
+							"request_id", reqCtx.RequestID,
+						)
+					}
+				}()
+				writeErr = dest.WriteRecord(rec)
+			}()
 			destMs = time.Since(destStart).Milliseconds()
 
 			// Unpack per-destination outcomes from MultiError (multi-destination path)

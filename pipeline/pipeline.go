@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
 	"github.com/Auvis-Labs/auvis/audit"
+	"github.com/Auvis-Labs/auvis/metrics"
 	"github.com/Auvis-Labs/auvis/policy"
 	"github.com/Auvis-Labs/auvis/transform"
 )
@@ -123,6 +125,20 @@ func (p *Pipeline) Run(ctx context.Context) error {
 }
 
 func (p *Pipeline) processRecord(ctx context.Context, record Record) {
+	defer func() {
+		if rErr := recover(); rErr != nil {
+			metrics.IncPanic("pipeline_process")
+			stack := string(debug.Stack())
+			slog.Error("Panic recovered in pipeline record processing",
+				"error", rErr,
+				"stack", stack,
+				"pipeline", p.Name,
+				"record_id", record.ID,
+			)
+			atomic.AddUint64(&p.metrics.FailedCount, 1)
+		}
+	}()
+
 	startTime := time.Now()
 	requestID := record.ID
 	if requestID == "" {

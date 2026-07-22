@@ -4,19 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Auvis-Labs/auvis/audit"
 	"github.com/Auvis-Labs/auvis/config"
+	"github.com/Auvis-Labs/auvis/pipeline"
 	"github.com/Auvis-Labs/auvis/pipeline/destination"
 	"github.com/Auvis-Labs/auvis/policy"
 	"github.com/Auvis-Labs/auvis/proxy"
 	"github.com/Auvis-Labs/auvis/transform"
+	"github.com/Auvis-Labs/auvis/types"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	pipelinecfg "github.com/Auvis-Labs/auvis/pipeline/config"
 
@@ -227,3 +233,204 @@ func readAuditLog(path string) ([]audit.Entry, error) {
 	}
 	return entries, nil
 }
+
+func TestRecoveryMiddleware(t *testing.T) {
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("simulated HTTP handler panic")
+	})
+
+	wrapped := proxy.Recovery(panicHandler)
+	req := httptest.NewRequest("GET", "/panic-test", nil)
+	rec := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+}
+
+func TestHandlerPanicRecoveryReturns500(t *testing.T) {
+	// 1. Setup a panicking transform function that triggers a nil pointer dereference on malformed input
+	panickingTransform := transform.StreamTransformFunc(func(src io.Reader, dst io.Writer, reqCtx types.RequestContext) (transform.Summary, error) {
+		body, _ := io.ReadAll(src)
+		if strings.Contains(string(body), "malformed_trigger_panic") {
+			var nilPtr *int
+			_ = *nilPtr // Intentionally trigger runtime nil pointer dereference panic
+		}
+		_, _ = dst.Write(body)
+		return transform.Summary{}, nil
+	})
+
+	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+	}))
+	defer mockUpstream.Close()
+
+	cfg := config.Config{
+		Port:        "8080",
+		AuditFile:   filepath.Join(t.TempDir(), "audit.jsonl"),
+		PoliciesDir: filepath.Join(t.TempDir(), "policies"),
+		UpstreamURL: mockUpstream.URL,
+	}
+
+	store := policy.NewStore()
+	auditLog, err := audit.NewLogger(cfg.AuditFile, 100)
+	if err != nil {
+		t.Fatalf("failed to create audit logger: %v", err)
+	}
+	defer auditLog.Close()
+
+	var reqCount int64
+	handler := proxy.Handler(cfg, store, panickingTransform, auditLog, &reqCount, nil)
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	client := server.Client()
+
+	// Request 1: Send malformed payload that triggers nil pointer panic
+	req1, _ := http.NewRequest("POST", server.URL, strings.NewReader(`{"input": "malformed_trigger_panic"}`))
+	req1.Header.Set("X-User-ID", "test-user")
+	req1.Header.Set("X-User-Role", "analyst")
+
+	resp1, err := client.Do(req1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp1.Body.Close()
+
+	if resp1.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected HTTP 500 on panic, got %d", resp1.StatusCode)
+	}
+
+	body1, _ := io.ReadAll(resp1.Body)
+	if !strings.Contains(string(body1), "internal server error") {
+		t.Errorf("expected 'internal server error' in response body, got %q", string(body1))
+	}
+
+	// Request 2: Send a normal request to confirm the server stayed online and continues servicing traffic
+	req2, _ := http.NewRequest("GET", server.URL, nil)
+	req2.Header.Set("X-User-ID", "test-user")
+	req2.Header.Set("X-User-Role", "analyst")
+
+	resp2, err := client.Do(req2)
+	if err != nil {
+		t.Fatalf("server crashed after panic: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	// Server must stay online (should return Bad Gateway 502 for dummy upstream, NOT connection refused or crash)
+	if resp2.StatusCode == 0 {
+		t.Errorf("server did not respond")
+	}
+}
+
+type panickingDestination struct{}
+
+func (d *panickingDestination) Connect() error                              { return nil }
+func (d *panickingDestination) WriteRecord(rec pipeline.Record) error       { panic("simulated destination write panic (e.g. Pinecone write failure)") }
+func (d *panickingDestination) Flush() error                                { return nil }
+func (d *panickingDestination) Close() error                                { return nil }
+
+func TestDestinationWritePanicRecoveryReturns500(t *testing.T) {
+	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer mockUpstream.Close()
+
+	cfg := config.Config{
+		Port:        "8080",
+		AuditFile:   filepath.Join(t.TempDir(), "audit.jsonl"),
+		PoliciesDir: filepath.Join(t.TempDir(), "policies"),
+		UpstreamURL: mockUpstream.URL,
+	}
+
+	store := policy.NewStore()
+	auditLog, err := audit.NewLogger(cfg.AuditFile, 100)
+	if err != nil {
+		t.Fatalf("failed to create audit logger: %v", err)
+	}
+	defer auditLog.Close()
+
+	var reqCount int64
+	panickingDest := &panickingDestination{}
+	handler := proxy.Handler(cfg, store, transform.NewStreamApplyFn(store), auditLog, &reqCount, panickingDest)
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	client := server.Client()
+
+	req, _ := http.NewRequest("GET", server.URL, nil)
+	req.Header.Set("X-User-ID", "test-user")
+	req.Header.Set("X-User-Role", "analyst")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Fail-closed security handling must return HTTP 500 when destination write panics
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected HTTP 500 on destination write panic, got %d", resp.StatusCode)
+	}
+
+	// Verify server remains online for subsequent requests
+	req2, _ := http.NewRequest("GET", server.URL, nil)
+	req2.Header.Set("X-User-ID", "test-user")
+	req2.Header.Set("X-User-Role", "analyst")
+
+	resp2, err := client.Do(req2)
+	if err != nil {
+		t.Fatalf("server crashed after destination write panic: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode == 0 {
+		t.Errorf("server did not respond")
+	}
+}
+
+func TestPrometheusPanicCounterIncrement(t *testing.T) {
+	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("prometheus metric panic trigger")
+	})
+
+	wrapped := proxy.Recovery(panicHandler)
+	req := httptest.NewRequest("GET", "/panic-metric", nil)
+	rec := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rec, req)
+
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("failed to gather prometheus metrics: %v", err)
+	}
+
+	found := false
+	for _, mf := range mfs {
+		if mf.GetName() == "auvis_recovered_panics_total" {
+			for _, m := range mf.GetMetric() {
+				if m.GetCounter().GetValue() > 0 {
+					found = true
+					break
+				}
+			}
+		}
+	}
+
+	if !found {
+		t.Errorf("expected auvis_recovered_panics_total counter to be > 0 in Prometheus gatherer")
+	}
+}
+
+
+
+

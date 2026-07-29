@@ -378,18 +378,18 @@ Benchmarked on a dev laptop (Apple M-series) against a Go upstream server:
 
 | Metric | Result |
 |---|---|
-| Requests/sec | 6,574 |
-| Average latency | 7.4ms |
-| p50 | 6.6ms |
-| p95 | 16.2ms |
+| Requests/sec | 6,541 |
+| Average latency | 7.6ms |
+| p50 | 5.9ms |
+| p95 | 18.1ms |
 | Fastest single request | 0.2ms |
-| Error rate (10,000 requests) | 0% |
+| Error rate (400,000 requests) | 0% |
 
 The proxy's own processing overhead is sub-millisecond. End-to-end latency is dominated by upstream response time. Production hardware on a real upstream will significantly exceed these numbers.
 
 This figure is **3.8× higher than the v0.1.0 baseline of 1,710 req/sec**, and the delta is fully explained by four changes shipped in v0.2.6: `httputil.ReverseProxy` is now cached per upstream URL via `sync.Map` instead of being rebuilt on every request; response buffers are reused across requests via `sync.Pool`; per-request and per-record `slog.Info` calls in the transform hot path were downgraded to `slog.Debug`, eliminating log-writer mutex contention under concurrent load; and the audit logger's per-entry `fsync` was removed — it was issuing a full kernel disk flush after every write, serializing the background writer goroutine under sustained load.
 
-*Tested with `hey -n 10000 -c 50` with full policy enforcement (field masking, PII scanning, audit logging) against a Go mock upstream.*
+*Tested with `hey -n 400000 -c 50` sustained over 60 seconds with full policy enforcement (field masking, PII scanning, audit logging) against a Go mock upstream.*
 
 ---
 
@@ -457,7 +457,7 @@ This figure is **3.8× higher than the v0.1.0 baseline of 1,710 req/sec**, and t
 - `strings.Builder` pooled in the array transform path
 - Hot-path log levels — per-request and per-record `slog.Info` calls downgraded to `slog.Debug`, eliminating log-writer mutex contention at high concurrency
 - Audit logger — removed per-entry `fsync` that was serializing the background writer goroutine under sustained load
-- Throughput: **6,574 req/sec** with full policy enforcement, field masking, PII scanning, and audit logging on a dev laptop — up from 1,710 req/sec
+- Throughput: **6,541 req/sec** with full policy enforcement, field masking, PII scanning, and audit logging on a dev laptop over 400,000 requests — up from 1,710 req/sec
 
 **v0.3.0 — Planned**
 - Confluence source connector

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.6] - 2026-07-21
 
 ### Changed
-- **Performance**: Increased gateway benchmark throughput from 1,710 req/sec to 6,574 req/sec (3.8× throughput increase, 7.4ms average latency under 50-way concurrency) via four targeted optimizations:
+- **Performance**: Increased gateway benchmark throughput from 1,710 req/sec to 6,541 req/sec (3.8× throughput increase, 7.6ms average latency, 0% error rate over 400,000 requests with 50-way concurrency) via four targeted optimizations:
   - **Reverse Proxy Caching**: Reused `httputil.ReverseProxy` instances per upstream URL via `sync.Map` rather than instantiating proxy structs, parsing URLs, and allocating closures per request.
   - **Buffer Pooling**: Implemented `sync.Pool` for `bytes.Buffer` response rehydration and `strings.Builder` array transform serialization, reducing memory allocation and GC pauses.
   - **Hot-Path Log Levels**: Downgraded per-request policy evaluation and per-record field disposition log messages from `slog.Info` to `slog.Debug`, removing log-writer stdout mutex contention under high concurrency.

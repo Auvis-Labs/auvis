@@ -10,7 +10,7 @@ version: "1"
 gateway:
   # Port the AUVIS gateway listens on.
   # Your application routes requests through this port.
-  port: 8080
+  port: 8082
   upstream: "http://localhost:8000"
 
   # Directory containing your policy YAML files.

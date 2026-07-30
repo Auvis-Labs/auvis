@@ -67,11 +67,10 @@ func runDev() error {
 	}
 
 	// --- Audit logger ---
-	auditLog, err := audit.NewRotatingLogger(cfg.AuditFile, 512, cfg.AuditMaxSizeMB, cfg.AuditMaxAgeDays)
+	auditLog, err := audit.NewDurabilityLogger(cfg.AuditFile, 512, cfg.AuditMaxSizeMB, cfg.AuditMaxAgeDays, cfg.AuditFsyncInterval)
 	if err != nil {
 		return fmt.Errorf("failed to initialize audit logger: %w", err)
 	}
-	slog.Info("Audit logger initialized", "destination", cfg.AuditFile)
 
 	// --- Policy store ---
 	store := policy.NewStore()

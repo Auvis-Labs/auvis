@@ -26,6 +26,10 @@ gateway:
   # Maximum audit log file size before rotation (in MB).
   audit_max_size_mb: 100
 
+  # Audit log disk durability mode.
+  # Options: "never" (fastest, default), "always" (zero data loss), or duration like "100ms", "500ms", "5s", "1m".
+  audit_fsync_interval: "never"
+
   # Upstream request timeout in seconds.
   # Requests to your upstream APIs that exceed this are cancelled.
   upstream_timeout_seconds: 10

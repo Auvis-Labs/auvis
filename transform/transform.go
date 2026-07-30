@@ -343,10 +343,11 @@ func extractRecordID(record []byte, pos int) string {
 }
 
 // resolveRules combines explicit field rules and dynamic tag-based rules.
-func resolveRules(ep *policy.EffectivePolicy, fieldTags map[string][]string) (map[string]policy.RuleAction, map[string]string, map[string]int) {
+func resolveRules(ep *policy.EffectivePolicy, fieldTags map[string][]string) (map[string]policy.RuleAction, map[string]string, map[string]int, map[string]string) {
 	resolvedRules := make(map[string]policy.RuleAction)
 	resolvedConditions := make(map[string]string)
 	resolvedLengths := make(map[string]int)
+	resolvedSeeds := make(map[string]string)
 
 	// 1. Copy explicit rules (highest precedence)
 	for k, v := range ep.Rules {
@@ -357,17 +358,21 @@ func resolveRules(ep *policy.EffectivePolicy, fieldTags map[string][]string) (ma
 		if l, ok := ep.RuleLengths[k]; ok {
 			resolvedLengths[k] = l
 		}
+		if s, ok := ep.RuleSeeds[k]; ok {
+			resolvedSeeds[k] = s
+		}
 	}
 
 	// Conflict resolution priority for tags
 	actionPriority := map[policy.RuleAction]int{
-		policy.ActionRemove:    7,
-		policy.ActionDeny:      6,
-		policy.ActionRedact:    5,
-		policy.ActionMask:      4,
-		policy.ActionTruncate:  3,
-		policy.ActionAnonymize: 2,
-		policy.ActionAllow:     1,
+		policy.ActionRemove:       8,
+		policy.ActionDeny:         7,
+		policy.ActionRedact:       6,
+		policy.ActionMask:         5,
+		policy.ActionTruncate:     4,
+		policy.ActionPseudonymize: 3,
+		policy.ActionAnonymize:    2,
+		policy.ActionAllow:        1,
 	}
 
 	// 2. Resolve dynamic tag rules
@@ -399,10 +404,13 @@ func resolveRules(ep *policy.EffectivePolicy, fieldTags map[string][]string) (ma
 			if l, ok := ep.TaggedRuleLengths[bestTag]; ok {
 				resolvedLengths[field] = l
 			}
+			if s, ok := ep.TaggedRuleSeeds[bestTag]; ok {
+				resolvedSeeds[field] = s
+			}
 		}
 	}
 
-	return resolvedRules, resolvedConditions, resolvedLengths
+	return resolvedRules, resolvedConditions, resolvedLengths, resolvedSeeds
 }
 
 // transformRecord applies field rules to a single JSON object.
@@ -415,7 +423,7 @@ func transformRecord(record []byte, reqCtx types.RequestContext, ep *policy.Effe
 	// Track which top-level fields were explicitly acted upon so we can compute "allowed" at the end.
 	actedOn := make(map[string]bool)
 
-	resolvedRules, resolvedConditions, resolvedLengths := resolveRules(ep, reqCtx.FieldTags)
+	resolvedRules, resolvedConditions, resolvedLengths, resolvedSeeds := resolveRules(ep, reqCtx.FieldTags)
 
 	for field, action := range resolvedRules {
 		// If policy specifies Fields constraint, only apply rules to those fields
@@ -482,6 +490,14 @@ func transformRecord(record []byte, reqCtx types.RequestContext, ep *policy.Effe
 			out, err = anonymizeField(out, field)
 			if err != nil {
 				return nil, recordDisposition{}, fmt.Errorf("anonymizing field %q: %w", field, err)
+			}
+			disp.masked = append(disp.masked, field)
+
+		case policy.ActionPseudonymize:
+			seed := resolvedSeeds[field]
+			out, err = pseudonymizeField(out, field, seed)
+			if err != nil {
+				return nil, recordDisposition{}, fmt.Errorf("pseudonymizing field %q: %w", field, err)
 			}
 			disp.masked = append(disp.masked, field)
 

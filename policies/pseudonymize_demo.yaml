@@ -1,0 +1,18 @@
+# policies/pseudonymize_demo.yaml — Example Pseudonymization Policy
+name: Pseudonymize User Telemetry & Patient Identifiers
+description: Replaces sensitive direct identifiers with deterministic, one-way format-preserving pseudonyms.
+priority: 100
+tags: [gdpr, pii, pseudonymization]
+compliance_tags: [GDPR, HIPAA]
+
+match:
+  roles: [analyst, researcher]
+  resource: /api/users
+
+rules:
+  - field: "data.*.email"
+    action: pseudonymize
+  - field: "data.*.ssn"
+    action: pseudonymize
+  - field: "data.*.id"
+    action: pseudonymize

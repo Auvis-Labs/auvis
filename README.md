@@ -105,6 +105,7 @@ Zero changes to your AI application code.
 - JSONL format — natively ingestible by Splunk, Datadog, ClickHouse
 - Size-based and age-based log rotation
 - Structured logging via `log/slog` throughout
+- **Configurable Fsync Durability Modes**: Choose between maximum speed (`"never"` default, ~6,541 req/s), zero data loss (`"always"` for banking/compliance), or flexible periodic flushes (e.g. `"100ms"`, `"5s"`). See [ADR 001](file:///Users/Cridiv/Documents/Auvis/docs/adr/001-audit-durability-fsync.md).
 
 ---
 
@@ -323,6 +324,7 @@ audit:
   file: "./audit.jsonl"
   max_size_mb: 100              # rotate after 100MB
   max_age_days: 30              # purge rotated files older than 30 days
+  fsync_interval: "never"       # "never" (6,541 req/s, default) | "always" (zero data loss) | "100ms", "5s"
 
 auth:
   jwt_secret: ${JWT_SECRET}

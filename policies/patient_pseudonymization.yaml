@@ -1,0 +1,21 @@
+# policies/patient_pseudonymization.yaml
+name: Healthcare Patient Identity Pseudonymization
+description: Replaces patient MRNs, SSNs, and names with deterministic pseudonyms for research analytics pipelines.
+priority: 150
+tags: [hipaa, pii, pseudonymization]
+compliance_tags: [HIPAA, GDPR]
+
+match:
+  roles: [researcher, analytics]
+  resource: /api/patients
+
+rules:
+  - field: "patient_id"
+    action: pseudonymize
+  - field: "mrn"
+    action: pseudonymize
+    seed: "oncology-research-cohort-key"  # Per-rule seed override for research isolation
+  - field: "ssn"
+    action: pseudonymize
+  - field: "primary_phone"
+    action: pseudonymize

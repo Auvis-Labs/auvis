@@ -62,6 +62,7 @@ type Rule struct {
 	Action       RuleAction `yaml:"action"`        // mask | remove | allow | deny | llm_intercept | redact | truncate
 	Condition string     `yaml:"condition"` // optional: "record.consent == false"
 	Length    int        `yaml:"length"`    // optional: used for truncate length
+	Seed      string     `yaml:"seed"`      // optional: per-rule pseudonymization seed override
 }
 
 // RuleAction is the set of valid actions a rule can take.
@@ -74,6 +75,7 @@ const (
 	ActionDeny         RuleAction = "deny"          // block entire response
 	ActionLLMIntercept RuleAction = "llm_intercept" // scan and mask request + rehydrate response
 	ActionAnonymize    RuleAction = "anonymize"    // one-way SHA-256 hash with salt
+	ActionPseudonymize RuleAction = "pseudonymize" // one-way deterministic format-preserving HMAC with salt
 	ActionRedact       RuleAction = "redact"       // replace with [REDACTED]
 	ActionTruncate     RuleAction = "truncate"     // keep first N characters
 )
@@ -130,6 +132,10 @@ type EffectivePolicy struct {
 	// Key is the field path, value is the length.
 	RuleLengths map[string]int
 
+	// RuleSeeds tracks the pseudonymization seed for each field.
+	// Key is the field path, value is the seed override string.
+	RuleSeeds map[string]string
+
 	// TaggedRules is the compiled field tag ruleset.
 	// Key is the tag, value is the action to take.
 	TaggedRules map[string]RuleAction
@@ -139,6 +145,9 @@ type EffectivePolicy struct {
 
 	// TaggedRuleLengths tracks the truncation length for each tag.
 	TaggedRuleLengths map[string]int
+
+	// TaggedRuleSeeds tracks the pseudonymization seed for each tag.
+	TaggedRuleSeeds map[string]string
 
 	// Triggers lists the execution contexts this policy applies to (e.g. "read", "ingest").
 	// Empty means the policy applies to all triggers.

@@ -151,9 +151,11 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 		Rules:                make(map[string]RuleAction),
 		RuleConditions:       make(map[string]string),
 		RuleLengths:          make(map[string]int),
+		RuleSeeds:            make(map[string]string),
 		TaggedRules:          make(map[string]RuleAction),
 		TaggedRuleConditions: make(map[string]string),
 		TaggedRuleLengths:    make(map[string]int),
+		TaggedRuleSeeds:      make(map[string]string),
 	}
 
 	for _, ep := range matches {
@@ -201,6 +203,9 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 			if l, ok := ep.RuleLengths[field]; ok {
 				merged.RuleLengths[field] = l
 			}
+			if s, ok := ep.RuleSeeds[field]; ok {
+				merged.RuleSeeds[field] = s
+			}
 		}
 
 		// Merge tag rules
@@ -209,6 +214,9 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 			merged.TaggedRuleConditions[tag] = ep.TaggedRuleConditions[tag]
 			if l, ok := ep.TaggedRuleLengths[tag]; ok {
 				merged.TaggedRuleLengths[tag] = l
+			}
+			if s, ok := ep.TaggedRuleSeeds[tag]; ok {
+				merged.TaggedRuleSeeds[tag] = s
 			}
 		}
 
@@ -443,9 +451,11 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 			Rules:                make(map[string]RuleAction),
 			RuleConditions:       make(map[string]string),
 			RuleLengths:          make(map[string]int),
+			RuleSeeds:            make(map[string]string),
 			TaggedRules:          make(map[string]RuleAction),
 			TaggedRuleConditions: make(map[string]string),
 			TaggedRuleLengths:    make(map[string]int),
+			TaggedRuleSeeds:      make(map[string]string),
 			Services:        p.Match.Services,
 			Fields:          p.Match.Fields,
 			Sources:         p.Match.Sources,
@@ -476,6 +486,9 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 				if rule.Length > 0 {
 					ep.RuleLengths[rule.Field] = rule.Length
 				}
+				if rule.Seed != "" {
+					ep.RuleSeeds[rule.Field] = rule.Seed
+				}
 			}
 
 			if len(rule.FieldsTagged) > 0 {
@@ -484,6 +497,9 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 					ep.TaggedRuleConditions[tag] = rule.Condition
 					if rule.Length > 0 {
 						ep.TaggedRuleLengths[tag] = rule.Length
+					}
+					if rule.Seed != "" {
+						ep.TaggedRuleSeeds[tag] = rule.Seed
 					}
 				}
 			}

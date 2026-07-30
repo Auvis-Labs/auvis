@@ -14,12 +14,14 @@ import (
 // Logger writes audit entries asynchronously to a .jsonl file.
 // Each entry is pretty-printed and separated by a blank line for readability.
 type Logger struct {
-	ch         chan Entry
-	done       chan struct{}
-	once       sync.Once
-	path       string
-	maxSize    int64 // max size in bytes
-	maxAgeDays int
+	ch            chan Entry
+	done          chan struct{}
+	once          sync.Once
+	path          string
+	maxSize       int64 // max size in bytes
+	maxAgeDays    int
+	fsyncInterval string
+	fsyncDuration time.Duration
 }
 
 // NewLogger creates a logger with default rotation values (10MB, 30 days) and starts the background writer.
@@ -29,12 +31,36 @@ func NewLogger(path string, bufSize int) (*Logger, error) {
 
 // NewRotatingLogger creates a logger and starts the background writer goroutine with explicit rotation parameters.
 func NewRotatingLogger(path string, bufSize int, maxSizeMB int, maxAgeDays int) (*Logger, error) {
+	return NewDurabilityLogger(path, bufSize, maxSizeMB, maxAgeDays, "never")
+}
+
+// NewDurabilityLogger creates a logger with explicit rotation and fsync durability configuration.
+// fsyncInterval supports "never" (default), "always" (every entry), or dynamic duration string like "100ms", "500ms", "5s", "1m".
+func NewDurabilityLogger(path string, bufSize int, maxSizeMB int, maxAgeDays int, fsyncInterval string) (*Logger, error) {
+	if fsyncInterval == "" {
+		fsyncInterval = "never"
+	}
+
+	var dur time.Duration
+	mode := strings.ToLower(fsyncInterval)
+	if mode != "never" && mode != "always" && mode != "every_entry" {
+		d, err := time.ParseDuration(fsyncInterval)
+		if err != nil {
+			slog.Warn("Invalid audit_fsync_interval configuration — defaulting to 'never'", "input", fsyncInterval, "error", err)
+			mode = "never"
+		} else {
+			dur = d
+		}
+	}
+
 	l := &Logger{
-		ch:         make(chan Entry, bufSize),
-		done:       make(chan struct{}),
-		path:       path,
-		maxSize:    int64(maxSizeMB) * 1024 * 1024,
-		maxAgeDays: maxAgeDays,
+		ch:            make(chan Entry, bufSize),
+		done:          make(chan struct{}),
+		path:          path,
+		maxSize:       int64(maxSizeMB) * 1024 * 1024,
+		maxAgeDays:    maxAgeDays,
+		fsyncInterval: mode,
+		fsyncDuration: dur,
 	}
 
 	go l.run()
@@ -44,9 +70,10 @@ func NewRotatingLogger(path string, bufSize int, maxSizeMB int, maxAgeDays int) 
 // NewStdoutLogger creates a logger that writes to os.Stdout.
 func NewStdoutLogger(bufSize int) *Logger {
 	l := &Logger{
-		ch:   make(chan Entry, bufSize),
-		done: make(chan struct{}),
-		path: "stdout",
+		ch:            make(chan Entry, bufSize),
+		done:          make(chan struct{}),
+		path:          "stdout",
+		fsyncInterval: "never",
 	}
 	go l.run()
 	return l
@@ -74,6 +101,8 @@ func (l *Logger) run() {
 	var err error
 	var currentSize int64
 
+	slog.Info("Audit logger initialized", "destination", l.path, "fsync_mode", l.fsyncInterval)
+
 	if l.path == "stdout" {
 		f = os.Stdout
 	} else {
@@ -97,16 +126,25 @@ func (l *Logger) run() {
 
 	defer func() {
 		if f != nil && f != os.Stdout {
+			_ = f.Sync()
 			f.Close()
 		}
 		close(l.done)
 	}()
 
-	for entry := range l.ch {
+	var ticker *time.Ticker
+	var tickerCh <-chan time.Time
+	if l.fsyncDuration > 0 {
+		ticker = time.NewTicker(l.fsyncDuration)
+		defer ticker.Stop()
+		tickerCh = ticker.C
+	}
+
+	writeEntry := func(entry Entry) {
 		b, err := json.MarshalIndent(entry, "", "  ")
 		if err != nil {
 			slog.Error("Failed to marshal audit log entry", "error", err, "request_id", entry.RequestID)
-			continue
+			return
 		}
 		data := append(b, '\n', '\n')
 
@@ -114,6 +152,7 @@ func (l *Logger) run() {
 		if f != os.Stdout && l.maxSize > 0 {
 			if currentSize+int64(len(data)) > l.maxSize {
 				// Rotate!
+				_ = f.Sync()
 				f.Close()
 
 				// Rename current file to timestamped version
@@ -147,10 +186,25 @@ func (l *Logger) run() {
 			slog.Error("Failed to write entry to audit log", "error", err, "request_id", entry.RequestID)
 		} else {
 			currentSize += int64(len(data))
+			if f != os.Stdout && (l.fsyncInterval == "always" || l.fsyncInterval == "every_entry") {
+				_ = f.Sync()
+			}
 		}
 	}
 
-	slog.Info("Audit logger background writer flushed and terminated")
+	for {
+		select {
+		case entry, ok := <-l.ch:
+			if !ok {
+				return
+			}
+			writeEntry(entry)
+		case <-tickerCh:
+			if f != nil && f != os.Stdout {
+				_ = f.Sync()
+			}
+		}
+	}
 }
 
 func (l *Logger) cleanupOldLogs() {

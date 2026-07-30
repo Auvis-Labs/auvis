@@ -89,6 +89,7 @@ var validActions = map[string]bool{
 	"deny":          true,
 	"llm_intercept": true,
 	"anonymize":     true,
+	"pseudonymize":  true,
 	"redact":        true,
 	"truncate":      true,
 }
@@ -619,7 +620,7 @@ func discoverPolicyFiles(dir string) ([]string, error) {
 
 func validFieldAction(action string) bool {
 	switch action {
-	case "mask", "remove", "allow", "anonymize", "*":
+	case "mask", "remove", "allow", "anonymize", "pseudonymize", "*":
 		return true
 	default:
 		return false
@@ -628,7 +629,7 @@ func validFieldAction(action string) bool {
 
 func suggestAction(input string) string {
 	// Simple levenstein-like suggestion for common typos
-	candidates := []string{"allow", "mask", "remove", "deny", "llm_intercept", "anonymize", "redact", "truncate"}
+	candidates := []string{"allow", "mask", "remove", "deny", "llm_intercept", "anonymize", "pseudonymize", "redact", "truncate"}
 	best := ""
 	bestDist := 999
 	for _, c := range candidates {

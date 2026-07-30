@@ -33,6 +33,7 @@ type Config struct {
 	AuditFile          string
 	AuditMaxSizeMB     int
 	AuditMaxAgeDays    int
+	AuditFsyncInterval string
 	PoliciesDir        string
 	IdpURL             string
 	Salt               string
@@ -52,6 +53,7 @@ type yamlConfig struct {
 		AuditFile          string               `yaml:"audit_file"`
 		AuditMaxSizeMB     int                  `yaml:"audit_max_size_mb"`
 		AuditMaxAgeDays    int                  `yaml:"audit_max_age_days"`
+		AuditFsyncInterval string               `yaml:"audit_fsync_interval"`
 		ShutdownTimeoutSec int                  `yaml:"shutdown_timeout_seconds"`
 		IdpURL             string               `yaml:"idp_url"`
 		Salt               string               `yaml:"salt"`
@@ -73,6 +75,7 @@ func LoadConfig(path string) Config {
 		AuditFile:          "./audit.jsonl",
 		AuditMaxSizeMB:     10,
 		AuditMaxAgeDays:    30,
+		AuditFsyncInterval: "never",
 		PoliciesDir:        "./policies",
 		UpstreamURL:        os.Getenv("AUVIS_UPSTREAM"),
 		IdpURL:             os.Getenv("AUVIS_IDP_URL"),
@@ -105,6 +108,9 @@ func LoadConfig(path string) Config {
 				}
 				if y.Gateway.AuditMaxAgeDays != 0 {
 					cfg.AuditMaxAgeDays = y.Gateway.AuditMaxAgeDays
+				}
+				if y.Gateway.AuditFsyncInterval != "" {
+					cfg.AuditFsyncInterval = y.Gateway.AuditFsyncInterval
 				}
 				if y.Gateway.ShutdownTimeoutSec != 0 {
 					cfg.ShutdownTimeoutSec = y.Gateway.ShutdownTimeoutSec
@@ -151,6 +157,9 @@ func LoadConfig(path string) Config {
 	}
 	if a := os.Getenv("AUVIS_AUDIT_FILE"); a != "" {
 		cfg.AuditFile = a
+	}
+	if f := os.Getenv("AUVIS_AUDIT_FSYNC_INTERVAL"); f != "" {
+		cfg.AuditFsyncInterval = f
 	}
 
 	// Salt loading & environment setting

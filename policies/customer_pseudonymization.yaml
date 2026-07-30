@@ -1,0 +1,18 @@
+# policies/customer_pseudonymization.yaml
+name: Customer Telemetry Pseudonymization
+description: Pseudonymizes customer IDs and account emails for AI vector database indexing and LLM context tracking.
+priority: 120
+tags: [gdpr, pii, ai-ingestion]
+compliance_tags: [GDPR, CCPA]
+
+match:
+  roles: [ai-agent, vector-indexer]
+  resource: /api/customers
+
+rules:
+  - field: "customer_id"
+    action: pseudonymize
+  - field: "account_email"
+    action: pseudonymize
+  - field: "billing_address.zip"
+    action: mask

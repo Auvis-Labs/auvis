@@ -21,6 +21,7 @@ import (
 	"github.com/cridiv/Auvis/pipeline/destination"
 	"github.com/cridiv/Auvis/policy"
 	"github.com/cridiv/Auvis/proxy"
+	"github.com/cridiv/Auvis/stream"
 	"github.com/cridiv/Auvis/transform"
 )
 
@@ -126,6 +127,7 @@ func runDev() error {
 
 	// Internal AUVIS endpoints — registered before the catch-all proxy
 	audit.RegisterHandlers(mux, cfg.AuditFile, startTime, &requestCount, store)
+	mux.HandleFunc("/auvis/stream", stream.Handler())
 
 	// Liveness Handler — returns 200 OK when process is running and accepting TCP connections
 	livenessHandler := func(w http.ResponseWriter, r *http.Request) {

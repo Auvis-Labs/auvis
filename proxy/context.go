@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Auvis-Labs/auvis/types"
+	"github.com/cridiv/Auvis/types"
 )
 
 func extractContext(r *http.Request, idpURL string) types.RequestContext {

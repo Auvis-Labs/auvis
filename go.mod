@@ -1,4 +1,4 @@
-module github.com/Auvis-Labs/auvis
+module github.com/cridiv/Auvis
 
 go 1.25.3
 

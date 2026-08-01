@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Auvis-Labs/auvis/cmd"
+	"github.com/cridiv/Auvis/cmd"
 )
 
 func main() {

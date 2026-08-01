@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Auvis-Labs/auvis/pipeline"
+	"github.com/cridiv/Auvis/pipeline"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

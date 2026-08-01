@@ -8,8 +8,8 @@ Govern your data before it reaches your AI — so your AI projects don't die in 
 
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat)](LICENSE)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/cridiv/Auvis/ci.yml?branch=main&logo=github&label=build&style=flat)](https://github.com/cridiv/Auvis/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Auvis-Labs/auvis?style=flat)](https://goreportcard.com/report/github.com/Auvis-Labs/auvis)
+[![CI Status](https://github.com/cridiv/Auvis/actions/workflows/ci.yml/badge.svg)](https://github.com/cridiv/Auvis/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/cridiv/Auvis.svg)](https://pkg.go.dev/github.com/cridiv/Auvis)
 [![Version](https://img.shields.io/badge/version-v0.2.6-green?style=flat)](https://github.com/cridiv/Auvis/releases)
 
 </div>
@@ -119,9 +119,9 @@ Zero changes to your AI application code.
 ### Install
 
 ```bash
-git clone https://github.com/Auvis-Labs/Auvis
-cd auvis
-go build -o bin/auvis ./...
+git clone https://github.com/cridiv/Auvis
+cd Auvis
+go build -o auvis .
 ```
 
 ### Run (Local with Docker Compose)

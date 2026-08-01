@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 
-	pipelinecfg "github.com/Auvis-Labs/auvis/pipeline/config"
+	pipelinecfg "github.com/cridiv/Auvis/pipeline/config"
 )
 
 // CircuitBreakerConfig specifies failure threshold and cooldown period for destination write protection.

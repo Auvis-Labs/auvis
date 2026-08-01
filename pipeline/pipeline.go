@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Auvis-Labs/auvis/audit"
-	"github.com/Auvis-Labs/auvis/metrics"
-	"github.com/Auvis-Labs/auvis/policy"
-	"github.com/Auvis-Labs/auvis/transform"
+	"github.com/cridiv/Auvis/audit"
+	"github.com/cridiv/Auvis/metrics"
+	"github.com/cridiv/Auvis/policy"
+	"github.com/cridiv/Auvis/transform"
 )
 
 // PolicyEngine evaluates policies against records in the pipeline.

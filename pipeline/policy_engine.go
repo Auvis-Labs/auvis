@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Auvis-Labs/auvis/policy"
+	"github.com/cridiv/Auvis/policy"
 )
 
 // DefaultPolicyEngine implements PolicyEngine with an LRU-style or simple map caching layer.

@@ -1,6 +1,6 @@
 # Auvis Codebase Guide
 
-This document maps every package in the `auvis-infra` to its purpose, lists the most important functions, and visualizes the dependency graph to help you quickly orient yourself within the codebase.
+This document maps every package in the **Auvis** repository to its purpose, lists the most important functions, and visualizes the dependency graph to help you quickly orient yourself within the codebase.
 
 ## Packages and Purposes
 

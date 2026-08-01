@@ -73,13 +73,13 @@ The `test-server` is a Python-based FastAPI mock application that serves rich PI
 
 ---
 
-### Step 2: Gateway Proxy Setup (`auvis-infra`)
+### Step 2: Gateway Proxy Setup (`Auvis`)
 
-The `auvis-infra` codebase is written in Go and contains the policy-matching engine, the reverse proxy, and the audit log writer.
+The Auvis codebase is written in Go and contains the policy-matching engine, the reverse proxy, and the audit log writer.
 
-1. In a new terminal window, navigate to the `auvis-infra` directory:
+1. In your terminal window, navigate to the `Auvis` directory:
    ```bash
-   cd auvis-infra
+   cd Auvis
    ```
 
 2. Configure the required environment variables:
@@ -194,8 +194,8 @@ curl -s "http://localhost:8080/auvis/audit?role=analyst&limit=10"
 ## ✍️ Contribution Workflow Guidelines
 
 ### Policy Definitions
-- Policy configurations live as YAML files inside `/auvis-infra/policies/`.
-- Ensure all rule actions match valid options: `allow`, `mask`, `remove`, `deny`.
+- Policy configurations live as YAML files inside `/policies/`.
+- Ensure all rule actions match valid options: `allow`, `mask`, `remove`, `redact`, `truncate`, `anonymize`, `pseudonymize`, `deny`.
 - Before submitting rules, test your schema locally against valid API JSON outputs.
 
 ### Code Style Standards

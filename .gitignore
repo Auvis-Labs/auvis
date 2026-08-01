@@ -119,8 +119,8 @@ python-venv/
 # ------------------------------------------
 # 5. Documentation Files
 # ------------------------------------------
-docs/
-docs/*
+docs/progress
+internal-docs/
 opensource_prep.md
 auvis_beginners_guide/
 Auvis_Go_Beginner_Guide/

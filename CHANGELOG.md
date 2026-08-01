@@ -7,14 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.6] - 2026-07-21
+## [0.2.6] - 2026-08-01
+
+### Added
+- **One-Way Deterministic Pseudonymization (`action: pseudonymize`)**: Added vaultless format-preserving HMAC-SHA256 pseudonymization (`usr_<hex>@<domain>`, `999-XX-XXXX`, `+1-555-01XX`, `usr_psd_<hex>`) for AI context tracking and vector index querying.
+- **Per-Rule Seed Isolation**: Added optional `seed` rule parameter to isolate pseudonym spaces per department or tenant.
+- **Configurable Audit Fsync Durability Modes**: Implemented `NewDurabilityLogger` supporting `"never"` (6,541 req/s), `"always"` (zero data loss, 1,700 req/s), and dynamic durations (`"100ms"`, `"5s"`, `"1m"`) with background ticker flushes (**ADR 001**).
+- **Per-Record Audit Outcomes (`RecordOutcome`)**: Multi-record array responses populate granular per-record field dispositions (`fields_masked`, `fields_removed`, `filtered`) in `audit.jsonl` with positional ID fallback (`record[N]`).
+- **Format-Preserving Masking Patterns**: Added dedicated format-aware maskers for `IBAN` (`GB29 **** **** **** **68 19`), `ABA Routing` (`*****6789`), and `Passport` (`A1****67`) numbers.
+- **Liveness & Readiness Probes**: Operational `/healthz` (liveness) and `/readyz` (readiness with policy count & circuit breaker status) endpoints, 100% excluded from policy checks and audit logging.
+- **Prometheus Telemetry (`GET /metrics`)**: Full Prometheus text exposition metrics (`auvis_requests_total`, `auvis_requests_by_outcome_total`, `auvis_request_duration_seconds`, `auvis_destination_writes_total`, `auvis_circuit_breaker_state`, `auvis_policy_matches_total`, `auvis_pii_scan_total`).
+- **Static Multi-Upstream Microservice Routing**: `upstreams: [...]` config syntax allowing one gateway to route requests to multiple backend microservices based on path-prefix or header with isolated policy directories.
+- **Grafana Observability Dashboard**: Added starter dashboard JSON (`examples/grafana_dashboard.json`).
+- **Circuit Breaker Protection**: Added 3-state destination write protection (`Closed`, `Open`, `HalfOpen`) with fast-fail response handling.
+- **Decoupled Availability**: Client HTTP responses deliver governed data independently of secondary storage destination failures (**ADR 003**).
+- **Panic Recovery Middleware**: Stack trace logging and panic counter metrics across all proxy and pipeline goroutines.
 
 ### Changed
-- **Performance**: Increased gateway benchmark throughput from 1,710 req/sec to 6,541 req/sec (3.8× throughput increase, 7.6ms average latency, 0% error rate over 400,000 requests with 50-way concurrency) via four targeted optimizations:
-  - **Reverse Proxy Caching**: Reused `httputil.ReverseProxy` instances per upstream URL via `sync.Map` rather than instantiating proxy structs, parsing URLs, and allocating closures per request.
-  - **Buffer Pooling**: Implemented `sync.Pool` for `bytes.Buffer` response rehydration and `strings.Builder` array transform serialization, reducing memory allocation and GC pauses.
-  - **Hot-Path Log Levels**: Downgraded per-request policy evaluation and per-record field disposition log messages from `slog.Info` to `slog.Debug`, removing log-writer stdout mutex contention under high concurrency.
-  - **Audit Logger Non-blocking Writes**: Removed synchronous per-entry `f.Sync()` calls in background audit writer that previously forced kernel disk flushes after every log entry.
+- **Performance**: Increased gateway benchmark throughput from 1,710 req/sec to 6,541 req/sec (3.8× throughput increase, 7.6ms average latency, 0% error rate over 400,000 requests with 50-way concurrency) via `ReverseProxy` caching, buffer pooling (`sync.Pool`), and non-blocking audit logging.
 
 ## [0.2.5] - 2026-06-27
 

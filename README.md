@@ -26,12 +26,12 @@ HR documents, salary records, customer PII, M&A discussions — all flattened in
 
 Existing tools don't fix this:
 
-| Tool | What they do | Why they miss this |
+| Tool Category | What they do | Why they miss this |
 |---|---|---|
-| Immuta / Privacera | Access control for Snowflake, Databricks | SQL analytics only — not ingestion pipelines |
-| LLM Gateways (Portkey, Helicone) | Filter prompts at inference time | Data is already in the vector DB by then |
-| DLP (Proofpoint, Forcepoint) | Watch email and endpoints | Blind to internal data flows |
-| Collibra / Alation | Data catalog and metadata | Documentation, not runtime enforcement |
+| SQL Access Control | Enforce access control for data warehouses (Snowflake, Databricks) | SQL analytics only — not ingestion pipelines |
+| LLM Gateways | Filter prompts at inference time | Data is already in the vector DB by then |
+| Traditional DLP | Watch email and network endpoints | Blind to internal data pipeline flows |
+| Data Catalogs | Track data lineage and metadata | Documentation only, not runtime enforcement |
 
 **Nobody enforces policies at the pipeline layer — between your source data and your AI system. That's Auvis.**
 
@@ -58,7 +58,7 @@ S3 / GCS               │         LLM Context Windows
 **What happens inside Auvis on every record:**
 
 1. **Policy evaluation** — match the record against your defined policies (<5ms)
-2. **Field-level transformation** — mask, redact, tokenize, or drop sensitive fields
+2. **Field-level transformation** — mask, redact, pseudonymize, or drop sensitive fields
 3. **ACL tag propagation** — carry source system permissions through to the vector index
 4. **Synchronous Sinks / Fan-out** — write transformed records synchronously and fail-closed to Postgres, Weaviate, pgvector, or Pinecone before client delivery
 5. **Audit logging** — record every decision, transformation, and policy match asynchronously

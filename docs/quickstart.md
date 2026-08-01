@@ -13,14 +13,16 @@ Auvis sits as a policy enforcement gateway between clients and your upstream ser
 
 ---
 
-## 🚀 Option A: Local Binary / CLI Path (3 Minutes)
+## 🚀 Option A: Go Install / Binary CLI Path (1 Minute)
 
-### Step 1: Clone and Build
+### Step 1: Install Auvis CLI
 ```bash
+# Option 1: Instant Go Install
+go install github.com/cridiv/Auvis@latest
+
+# Option 2: Build from Source
 git clone https://github.com/cridiv/Auvis.git
 cd Auvis
-
-# Build the Auvis binary
 go build -o auvis .
 ```
 
@@ -87,14 +89,17 @@ Notice:
 
 ---
 
-## 🐳 Option B: Docker Compose Path (2 Minutes)
+## 🐳 Option B: Docker Container & Compose Path (2 Minutes)
 
-If you prefer running via Docker containers:
-
-### Step 1: Launch Containers
+### Step 1: Pull Image or Launch Compose
 ```bash
+# Option 1: Direct Docker Pull
+docker pull ghcr.io/cridiv/auvis:latest
+
+# Option 2: Launch full stack via Compose
+git clone https://github.com/cridiv/Auvis.git
 cd Auvis
-docker compose up -d --build
+docker compose up -d
 ```
 This starts:
 - **Auvis Gateway** on port `8080`

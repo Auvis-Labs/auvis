@@ -118,6 +118,17 @@ Zero changes to your AI application code.
 
 ### Install
 
+#### Option 1: Go Install (Instant CLI)
+```bash
+go install github.com/cridiv/Auvis@latest
+```
+
+#### Option 2: Docker Pull (Container Image)
+```bash
+docker pull ghcr.io/cridiv/auvis:latest
+```
+
+#### Option 3: From Source
 ```bash
 git clone https://github.com/cridiv/Auvis
 cd Auvis
@@ -142,7 +153,7 @@ Alternatively, to run natively:
 # Start the proxy in dev mode
 AUVIS_UPSTREAM=http://your-upstream:8000 \
 AUVIS_PORT=8080 \
-./bin/auvis dev
+auvis dev
 ```
 
 ### Write your first policy

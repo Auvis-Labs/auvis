@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #07090e;
+    color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Synchronized vertical floating motion for nodes */
+@keyframes nodeWaveFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float-node-1 {
+  animation: nodeWaveFloat 4s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.animate-float-node-2 {
+  animation: nodeWaveFloat 4s ease-in-out infinite;
+  animation-delay: 0.8s;
+}
+
+.animate-float-node-3 {
+  animation: nodeWaveFloat 4s ease-in-out infinite;
+  animation-delay: 1.6s;
+}
+
+.animate-float-node-4 {
+  animation: nodeWaveFloat 4s ease-in-out infinite;
+  animation-delay: 2.4s;
+}
+
+/* Continuous Glowing Energy Pulse for Connection Lines */
+@keyframes energyFlow {
+  0% {
+    stroke-dashoffset: 200;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-neon-beam-1 {
+  stroke-dasharray: 12 24;
+  animation: energyFlow 2s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.8));
+}
+
+.animate-neon-beam-2 {
+  stroke-dasharray: 12 24;
+  animation: energyFlow 1.5s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.9));
+}
+
+.animate-neon-beam-3 {
+  stroke-dasharray: 12 24;
+  animation: energyFlow 1.8s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+}

@@ -557,9 +557,12 @@ func transformRecord(record []byte, reqCtx types.RequestContext, ep *policy.Effe
 }
 
 var (
-	ssnPattern   = regexp.MustCompile(`^\d{3}-\d{2}-\d{4}$`)
-	phonePattern = regexp.MustCompile(`^(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}$`)
-	cardPattern  = regexp.MustCompile(`^(?:\d[ -]?){13,16}$`)
+	ssnPattern      = regexp.MustCompile(`^\d{3}-\d{2}-\d{4}$`)
+	phonePattern    = regexp.MustCompile(`^(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}$`)
+	cardPattern     = regexp.MustCompile(`^(?:\d[ -]?){13,16}$`)
+	ibanPattern     = regexp.MustCompile(`^[A-Za-z]{2}\d{2}[A-Za-z0-9\s-]{11,30}$`)
+	routingPattern  = regexp.MustCompile(`^\d{9}$`)
+	passportPattern = regexp.MustCompile(`^[A-Za-z]{2}\d{6,7}$`)
 )
 
 // sbPool reuses strings.Builder instances across transformArray calls,
@@ -633,12 +636,21 @@ func maskValue(val gjson.Result) interface{} {
 			return maskSSN(s)
 		} else if cardPattern.MatchString(s) {
 			return maskCreditCard(s)
+		} else if ibanPattern.MatchString(s) {
+			return maskIBAN(s)
+		} else if routingPattern.MatchString(s) {
+			return maskABARouting(s)
+		} else if passportPattern.MatchString(s) {
+			return maskPassport(s)
 		} else if phonePattern.MatchString(s) {
 			return maskPhone(s)
 		}
 		return maskGeneric(s)
 	case gjson.Number:
 		s := val.String()
+		if routingPattern.MatchString(s) {
+			return maskABARouting(s)
+		}
 		return maskGeneric(s)
 	case gjson.True, gjson.False:
 		return val.Bool()
@@ -718,6 +730,64 @@ func maskPhone(value string) string {
 			}
 		} else {
 			sb.WriteByte(value[i])
+		}
+	}
+	return sb.String()
+}
+
+func maskIBAN(value string) string {
+	runes := []rune(value)
+	if len(runes) < 5 {
+		return maskGeneric(value)
+	}
+
+	totalAlphanum := 0
+	for _, r := range runes {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			totalAlphanum++
+		}
+	}
+	if totalAlphanum < 5 {
+		return maskGeneric(value)
+	}
+
+	var sb strings.Builder
+	charCount := 0
+	for _, r := range runes {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			charCount++
+			// Preserve first 4 characters (Country Code + Check Digits) and last 4 characters
+			if charCount <= 4 || charCount > totalAlphanum-4 {
+				sb.WriteRune(r)
+			} else {
+				sb.WriteRune('*')
+			}
+		} else {
+			sb.WriteRune(r) // Preserve formatting spaces and hyphens
+		}
+	}
+	return sb.String()
+}
+
+func maskABARouting(value string) string {
+	if len(value) != 9 {
+		return maskGeneric(value)
+	}
+	return "*****" + value[5:]
+}
+
+func maskPassport(value string) string {
+	n := len(value)
+	if n < 5 {
+		return maskGeneric(value)
+	}
+	var sb strings.Builder
+	for i := 0; i < n; i++ {
+		// Preserve first 2 characters and last 2 characters
+		if i < 2 || i >= n-2 {
+			sb.WriteByte(value[i])
+		} else {
+			sb.WriteByte('*')
 		}
 	}
 	return sb.String()

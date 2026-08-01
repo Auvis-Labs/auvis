@@ -295,6 +295,13 @@ func (s *Store) GetPolicies() map[string]*EffectivePolicy {
 	return copy
 }
 
+// Count returns the total number of compiled effective policies currently active in the store.
+func (s *Store) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.policies)
+}
+
 // LoadDir reads all .yaml/.yml files from dir, compiles them into the store.
 // Returns the number of effective policies loaded.
 func (s *Store) LoadDir(dir string) (int, error) {

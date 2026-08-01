@@ -127,8 +127,24 @@ func runDev() error {
 	// Internal AUVIS endpoints — registered before the catch-all proxy
 	audit.RegisterHandlers(mux, cfg.AuditFile, startTime, &requestCount, store)
 
-	// Health check endpoint — exposes gateway status and per-destination circuit breaker states
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	// Liveness Handler — returns 200 OK when process is running and accepting TCP connections
+	livenessHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]any{
+			"status":         "ok",
+			"service":        "auvis",
+			"uptime_seconds": int64(time.Since(startTime).Seconds()),
+		}
+		b, _ := json.MarshalIndent(resp, "", "  ")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+	}
+
+	mux.HandleFunc("/healthz", livenessHandler)
+	mux.HandleFunc("/health", livenessHandler)
+
+	// Readiness Handler — inspects policy store status and circuit breaker state telemetry
+	readinessHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		cbStates := make(map[string]string)
@@ -136,9 +152,35 @@ func runDev() error {
 			cbStates = exporter.GetBreakerStates()
 		}
 
+		policyCount := store.Count()
+		status := "ready"
+		httpStatus := http.StatusOK
+
+		if policyCount == 0 {
+			status = "not_ready"
+			httpStatus = http.StatusServiceUnavailable
+		} else if len(cbStates) > 0 {
+			openCount := 0
+			for _, state := range cbStates {
+				if state == "Open" {
+					openCount++
+				}
+			}
+			if openCount == len(cbStates) {
+				// All destinations down
+				status = "not_ready"
+				httpStatus = http.StatusServiceUnavailable
+			} else if openCount > 0 {
+				// Partially degraded
+				status = "degraded"
+				httpStatus = http.StatusOK
+			}
+		}
+
 		resp := map[string]any{
-			"status":           "ok",
+			"status":           status,
 			"service":          "auvis",
+			"policies_loaded":  policyCount,
 			"circuit_breakers": cbStates,
 		}
 
@@ -147,9 +189,12 @@ func runDev() error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(httpStatus)
 		_, _ = w.Write(b)
-	})
+	}
+
+	mux.HandleFunc("/readyz", readinessHandler)
+	mux.HandleFunc("/ready", readinessHandler)
 
 	// Catch-all proxy handler
 	mux.Handle("/", proxy.Handler(cfg, store, transformFn, auditLog, &requestCount, dest))

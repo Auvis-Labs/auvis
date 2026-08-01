@@ -407,6 +407,7 @@ func Handler(
 				}
 				if writeErr != nil {
 					destsFailed++
+					metrics.IncDestinationWrite(destName, "failure")
 					destResults = append(destResults, audit.DestResult{
 						Type:       destName,
 						Written:    false,
@@ -415,6 +416,7 @@ func Handler(
 					})
 				} else {
 					destsWritten++
+					metrics.IncDestinationWrite(destName, "success")
 					destResults = append(destResults, audit.DestResult{
 						Type:       destName,
 						Written:    true,
@@ -448,7 +450,19 @@ func Handler(
 		w.WriteHeader(responseStatus)
 		_, _ = w.Write(buf.Bytes())
 
-		// STEP 8 — Audit
+		// STEP 8 — Audit & Prometheus Telemetry
+		metrics.ObserveRequest(reqCtx.Method, reqCtx.Resource, responseStatus, time.Since(start).Seconds())
+		metrics.IncPolicyMatch(len(summary.PoliciesApplied) > 0)
+		if summary.Denied {
+			metrics.IncOutcome("denied")
+		} else if len(summary.FieldsMasked) > 0 {
+			metrics.IncOutcome("masked")
+		} else if len(summary.FieldsRemoved) > 0 {
+			metrics.IncOutcome("removed")
+		} else {
+			metrics.IncOutcome("allowed")
+		}
+
 		auditLog.Write(audit.Entry{
 			Timestamp:           time.Now().UTC(),
 			RequestID:           reqCtx.RequestID,

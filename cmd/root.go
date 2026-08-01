@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const version = "0.2.5"
+const version = "0.2.6"
 
 // banner is printed on every command invocation
 const banner = `
@@ -22,17 +22,17 @@ const banner = `
 
 var (
 	// global flags — available on every subcommand
-	cfgFile    string
+	cfgFile     string
 	policiesDir string
-	verbose    bool
+	verbose     bool
 
 	// colour helpers — automatically disabled if not a TTY
-	bold    = color.New(color.Bold)
-	green   = color.New(color.FgGreen, color.Bold)
-	red     = color.New(color.FgRed, color.Bold)
-	yellow  = color.New(color.FgYellow)
-	cyan    = color.New(color.FgCyan)
-	dimmed  = color.New(color.Faint)
+	bold   = color.New(color.Bold)
+	green  = color.New(color.FgGreen, color.Bold)
+	red    = color.New(color.FgRed, color.Bold)
+	yellow = color.New(color.FgYellow)
+	cyan   = color.New(color.FgCyan)
+	dimmed = color.New(color.Faint)
 )
 
 // rootCmd is the base command — `auvis` with no subcommand
@@ -104,7 +104,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(logsCmd)
 	rootCmd.AddCommand(versionCmd)
-	
+
 	rootCmd.AddCommand(policiesCmd)
 	policiesCmd.AddCommand(policiesListCmd)
 }

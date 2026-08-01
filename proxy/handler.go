@@ -150,6 +150,8 @@ func Handler(
 		}
 		return rp, nil
 	}
+	// Initialize UpstreamRouter for multi-upstream routing
+	router, _ := NewUpstreamRouter(cfg.Upstreams)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -169,6 +171,31 @@ func Handler(
 		start := time.Now()
 		atomic.AddInt64(requestCount, 1)
 
+		// STEP 0 — Resolve upstream route & policy store
+		activeStore := store
+		rawUpstream := ""
+
+		if router != nil {
+			resolvedRoute := router.Resolve(r)
+			if resolvedRoute != nil {
+				rawUpstream = resolvedRoute.TargetRaw
+				if resolvedRoute.Store != nil && resolvedRoute.Store.Count() > 0 {
+					activeStore = resolvedRoute.Store
+				}
+			}
+		}
+
+		if h := r.Header.Get("X-Auvis-Upstream"); h != "" {
+			rawUpstream = h
+		}
+		if rawUpstream == "" {
+			rawUpstream = cfg.UpstreamURL
+		}
+		if rawUpstream == "" {
+			http.Error(w, "Missing X-Auvis-Upstream header and no default upstream configured", http.StatusBadRequest)
+			return
+		}
+
 		// STEP 1 — Extract + validate identity
 		reqCtx := extractContext(r, cfg.IdpURL)
 		if reqCtx.UserID == "" || reqCtx.UserRole == "" {
@@ -177,7 +204,7 @@ func Handler(
 		}
 
 		// STEP 1.5 — Lookup policy for LLM PII interception
-		ep := store.Lookup(reqCtx.UserRole, reqCtx.Resource, reqCtx.Service, reqCtx.Source, reqCtx.Destination, reqCtx.Trigger)
+		ep := activeStore.Lookup(reqCtx.UserRole, reqCtx.Resource, reqCtx.Service, reqCtx.Source, reqCtx.Destination, reqCtx.Trigger)
 		isLLMIntercept := false
 		var llmInterceptor *pii.LLMInterceptor
 		var placeholderMap *pii.PlaceholderMap
@@ -213,7 +240,7 @@ func Handler(
 
 			maskedBody, pm, summary, err := llmInterceptor.InterceptRequest(r.Context(), bodyBytes, reqCtx)
 			if err != nil {
-				slog.Error("LLM request intercept error", "error", err, "request_id", reqCtx.RequestID)
+				slog.Error("Failed to intercept request PII", "error", err, "request_id", reqCtx.RequestID)
 				http.Error(w, "request interception error", http.StatusInternalServerError)
 				return
 			}
@@ -230,16 +257,6 @@ func Handler(
 			r.Body = io.NopCloser(bytes.NewReader(maskedBody))
 			r.ContentLength = int64(len(maskedBody))
 			r.Header.Set("Content-Length", fmt.Sprintf("%d", len(maskedBody)))
-		}
-
-		// STEP 2 — Resolve upstream URL (per-request header overrides config default).
-		rawUpstream := r.Header.Get("X-Auvis-Upstream")
-		if rawUpstream == "" {
-			rawUpstream = cfg.UpstreamURL
-		}
-		if rawUpstream == "" {
-			http.Error(w, "Missing X-Auvis-Upstream header and no default upstream configured", http.StatusBadRequest)
-			return
 		}
 
 		// STEP 3 — Get or create a cached reverse proxy for this upstream.
@@ -321,7 +338,11 @@ func Handler(
 			buf.Write(responseBytes)
 			summary = transform.Summary{}
 		} else {
-			summary, transformErr = transformFn(pipeReader, buf, reqCtx)
+			activeTransformFn := transformFn
+			if activeStore != store {
+				activeTransformFn = transform.NewStreamApplyFn(activeStore)
+			}
+			summary, transformErr = activeTransformFn(pipeReader, buf, reqCtx)
 			if transformErr != nil {
 				slog.Error("Response transformation error", "error", transformErr, "request_id", reqCtx.RequestID)
 				http.Error(w, "transform error", http.StatusInternalServerError)

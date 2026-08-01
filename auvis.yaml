@@ -13,6 +13,18 @@ gateway:
   port: 8082
   upstream: "http://localhost:8000"
 
+  # Static Multi-Upstream Microservice Routing (Optional list form)
+  # Allows one gateway to route to multiple backend microservices based on path prefix or header:
+  # upstreams:
+  #   - name: "patient-service"
+  #     prefix: "/api/v1/patients"
+  #     target: "http://localhost:8081"
+  #     policies_dir: "./policies/patients"
+  #   - name: "billing-service"
+  #     prefix: "/api/v1/billing"
+  #     target: "http://localhost:8083"
+  #     policies_dir: "./policies/billing"
+
   # Directory containing your policy YAML files.
   # All .yaml files in this directory are loaded and merged at startup.
   # The gateway watches this directory — edits apply instantly, no restart needed.

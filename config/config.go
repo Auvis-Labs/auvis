@@ -17,6 +17,15 @@ type CircuitBreakerConfig struct {
 	CooldownSeconds int `yaml:"cooldown_seconds"`
 }
 
+// UpstreamConfig defines a static upstream target service and its optional path/header routing prefix.
+type UpstreamConfig struct {
+	Name        string `yaml:"name" json:"name"`
+	Prefix      string `yaml:"prefix" json:"prefix"`
+	Header      string `yaml:"header" json:"header"`
+	Target      string `yaml:"target" json:"target"`
+	PoliciesDir string `yaml:"policies_dir" json:"policies_dir"`
+}
+
 // DestinationConfig holds optional config for writing governed records to an external data sink.
 type DestinationConfig struct {
 	// Type is the destination driver name (e.g. "postgres"). Empty string means disabled.
@@ -39,6 +48,8 @@ type Config struct {
 	Salt               string
 	ShutdownTimeoutSec int
 	CircuitBreaker     CircuitBreakerConfig
+	// Upstreams is the list of static upstream target services.
+	Upstreams []UpstreamConfig
 	// Destinations is the ordered list of configured data sinks.
 	// A single destination is represented as a one-element slice.
 	// Zero-length means no destination is configured.
@@ -58,6 +69,7 @@ type yamlConfig struct {
 		IdpURL             string               `yaml:"idp_url"`
 		Salt               string               `yaml:"salt"`
 		Upstream           string               `yaml:"upstream"`
+		Upstreams          []UpstreamConfig     `yaml:"upstreams"`
 		CircuitBreaker     CircuitBreakerConfig `yaml:"circuit_breaker"`
 		// Legacy singular form — still supported for backward compatibility.
 		Destination DestinationConfig `yaml:"destination"`
@@ -124,6 +136,9 @@ func LoadConfig(path string) Config {
 				if y.Gateway.Upstream != "" {
 					cfg.UpstreamURL = y.Gateway.Upstream
 				}
+				if len(y.Gateway.Upstreams) > 0 {
+					cfg.Upstreams = y.Gateway.Upstreams
+				}
 				if y.Gateway.CircuitBreaker.MaxFailures != 0 {
 					cfg.CircuitBreaker.MaxFailures = y.Gateway.CircuitBreaker.MaxFailures
 				}
@@ -160,6 +175,18 @@ func LoadConfig(path string) Config {
 	}
 	if f := os.Getenv("AUVIS_AUDIT_FSYNC_INTERVAL"); f != "" {
 		cfg.AuditFsyncInterval = f
+	}
+
+	// Convert single upstream into default element in Upstreams list if Upstreams list is empty
+	if len(cfg.Upstreams) == 0 && cfg.UpstreamURL != "" {
+		cfg.Upstreams = []UpstreamConfig{
+			{
+				Name:        "default",
+				Prefix:      "/",
+				Target:      cfg.UpstreamURL,
+				PoliciesDir: cfg.PoliciesDir,
+			},
+		}
 	}
 
 	// Salt loading & environment setting

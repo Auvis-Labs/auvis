@@ -52,7 +52,7 @@ func runDev() error {
 	cfg := config.LoadConfig(cfgFile)
 
 	if cfg.UpstreamURL == "" {
-		return fmt.Errorf("AUVIS_UPSTREAM environment variable is required")
+		return fmt.Errorf("AUVIS_UPSTREAM_URL or AUVIS_UPSTREAM environment variable is required")
 	}
 
 	// --- Automatic Policy Validation & Syntax Check ---

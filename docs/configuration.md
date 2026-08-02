@@ -134,7 +134,7 @@ gateway:
 | Environment Variable | Description | Example |
 |---|---|---|
 | `AUVIS_PORT` | Gateway port override | `9090` |
-| `AUVIS_UPSTREAM` | Upstream URL override | `http://api.internal:8000` |
+| `AUVIS_UPSTREAM_URL` | Upstream URL override (fallback `AUVIS_UPSTREAM`) | `http://api.internal:8000` |
 | `AUVIS_AUDIT_FILE` | Audit log path override | `/var/log/auvis/audit.jsonl` |
 | `AUVIS_SALT` | Hashing salt override | `prod-secret-salt-phrase` |
 | `AUVIS_IDP_URL` | IdP resolve endpoint override | `https://idp.example.com/userinfo` |

@@ -105,7 +105,7 @@ Main configuration loader. Call once at startup in `cmd/dev.go` before construct
 | Variable | Description |
 |---|---|
 | `AUVIS_PORT` | Override listening port (e.g. `"9090"`) |
-| `AUVIS_UPSTREAM` | Default upstream URL (e.g. `"http://localhost:3000"`) |
+| `AUVIS_UPSTREAM_URL` | Default upstream URL (e.g. `"http://localhost:3000"`). Fallback is `AUVIS_UPSTREAM`. |
 | `AUVIS_AUDIT_FILE` | Override audit log file path |
 | `AUVIS_IDP_URL` | Identity provider URL for dynamic user attribute lookup |
 | `AUVIS_SALT` | Salt for SHA-256 anonymization. **Must be kept secret**. |

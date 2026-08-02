@@ -86,10 +86,10 @@ gateway:
 const defaultDotEnv = `# .env — AUVIS Gateway Environment Variables
 # Documentation: https://auvis.dev/docs/configuration
 
-# AUVIS_UPSTREAM defines the target backend API or microservice URL that AUVIS proxies requests to.
+# AUVIS_UPSTREAM_URL defines the target backend API or microservice URL that AUVIS proxies requests to.
 # In development, set this to your local backend server (e.g. http://localhost:8000).
 # In production, set this to your upstream cluster endpoint or internal load balancer.
-AUVIS_UPSTREAM=http://localhost:8000
+AUVIS_UPSTREAM_URL=http://localhost:8000
 `
 
 // Default policy directory structure — created on `auvis init`.

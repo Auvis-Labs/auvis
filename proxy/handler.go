@@ -326,12 +326,12 @@ func Handler(
 
 			buf.Write(rehydratedBytes)
 			summary = requestSummary
-		} else if info.statusCode != http.StatusOK {
-			// Non-200 upstream response (error, redirect body, etc.) — pass through raw,
+		} else if info.statusCode < 200 || info.statusCode >= 300 {
+			// Non-2xx upstream response (error, redirect body, etc.) — pass through raw,
 			// no field rules should be applied to error payloads.
 			responseBytes, err := io.ReadAll(pipeReader)
 			if err != nil {
-				slog.Error("Failed to read non-200 upstream response", "error", err, "request_id", reqCtx.RequestID)
+				slog.Error("Failed to read non-2xx upstream response", "error", err, "request_id", reqCtx.RequestID)
 				http.Error(w, "upstream read error", http.StatusBadGateway)
 				return
 			}

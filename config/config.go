@@ -103,7 +103,7 @@ func LoadConfig(path string) Config {
 		AuditMaxAgeDays:    30,
 		AuditFsyncInterval: "never",
 		PoliciesDir:        "./policies",
-		UpstreamURL:        os.Getenv("AUVIS_UPSTREAM"),
+		UpstreamURL:        getEnvWithFallback("AUVIS_UPSTREAM_URL", "AUVIS_UPSTREAM"),
 		IdpURL:             os.Getenv("AUVIS_IDP_URL"),
 		ShutdownTimeoutSec: 30,
 		CircuitBreaker: CircuitBreakerConfig{
@@ -295,4 +295,11 @@ func LoadConfig(path string) Config {
 	os.Setenv("AUVIS_SALT", salt)
 
 	return cfg
+}
+
+func getEnvWithFallback(preferred, fallback string) string {
+	if val := os.Getenv(preferred); val != "" {
+		return val
+	}
+	return os.Getenv(fallback)
 }

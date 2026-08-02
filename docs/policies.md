@@ -99,7 +99,7 @@ Describes where the actual records live inside the API response body.
 
 | Field | Type | Description |
 |---|---|---|
-| `data_path` | `string` | gjson dot-notation path to the records. Empty = root of the response. |
+| `data_path` | `string` | gjson dot-notation path to the records. Empty = root of the response. Set to `"auto"` (or `"detect"`) to auto-detect common envelope wrappers (`"data"`, `"result"`, `"payload"`, etc.). |
 | `array` | `bool` | Override auto-detection: `true` = treat as array of records, `false` = single object. Omit to auto-detect. |
 | `rehydrate` | `bool` | If `true`, placeholders substituted in the LLM request are restored in the LLM response. Only applies when `field: "*", action: llm_intercept`. |
 
@@ -112,6 +112,7 @@ Describes where the actual records live inside the API response body.
 | `{"data": [{...}]}` | `"data"` | auto-detect |
 | `{"result": {"users": [{...}]}}` | `"result.users"` | auto-detect |
 | `{"data": {...}}` | `"data"` | `false` (required to prevent misdetection) |
+| `{"payload": {...}}` | `"auto"` | auto-detect |
 
 ---
 

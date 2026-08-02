@@ -153,6 +153,11 @@ func Handler(
 	// Initialize UpstreamRouter for multi-upstream routing
 	router, _ := NewUpstreamRouter(cfg.Upstreams)
 
+	resolver := ChainResolver{
+		&JWTResolver{IdpURL: cfg.IdpURL},
+		&HeaderResolver{},
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rErr := recover(); rErr != nil {
@@ -197,11 +202,12 @@ func Handler(
 		}
 
 		// STEP 1 — Extract + validate identity
-		reqCtx := extractContext(r, cfg.IdpURL)
-		if reqCtx.UserID == "" || reqCtx.UserRole == "" {
-			http.Error(w, "Missing identity headers (X-User-ID, X-User-Role)", http.StatusUnauthorized)
+		identity, err := resolver.Resolve(r)
+		if err != nil {
+			http.Error(w, "Missing identity headers or credentials", http.StatusUnauthorized)
 			return
 		}
+		reqCtx := extractContext(r, identity)
 
 		// STEP 1.5 — Lookup policy for LLM PII interception
 		ep := activeStore.Lookup(reqCtx.UserRole, reqCtx.Resource, reqCtx.Service, reqCtx.Source, reqCtx.Destination, reqCtx.Trigger)

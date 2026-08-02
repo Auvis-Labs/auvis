@@ -54,7 +54,7 @@ Quick start:
   auvis status     show gateway health and active policies
   auvis logs       tail and filter the audit log
 
-Documentation: https://auvis.io/docs
+Documentation: https://auvis.dev/docs
 `, banner, version),
 	// Running bare `auvis` with no subcommand prints help, not an error
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -1,5 +1,5 @@
 # auvis.yaml — AUVIS gateway configuration
-# Documentation: https://auvis.io/docs/configuration
+# Documentation: https://auvis.dev/docs/configuration
 #
 # This file configures the AUVIS gateway for this project.
 # Define WHERE the gateway runs and HOW it behaves.

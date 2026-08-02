@@ -47,6 +47,8 @@ var statusCmd = &cobra.Command{
 
 		if resp.StatusCode != http.StatusOK {
 			printError("Gateway status endpoint returned HTTP %d", resp.StatusCode)
+			printDimmed("  Tip: Ensure the Auvis gateway is active by running 'auvis dev'.")
+			printDimmed("  Run 'auvis --help' for CLI reference.")
 			return nil
 		}
 

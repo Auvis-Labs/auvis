@@ -159,7 +159,8 @@ func runValidate() error {
 		if len(cfgErrors) == 0 {
 			// policies dir missing is only an error if gateway config is valid
 			printError("policies directory not found: %s", dirPath)
-			printDimmed("Run 'auvis init' to create it")
+			printDimmed("  Tip: Run 'auvis init' to scaffold sample policies.")
+			printDimmed("  Run 'auvis --help' for CLI reference.")
 			os.Exit(1)
 		}
 		// If gateway config is also broken, just report what we have
@@ -169,7 +170,8 @@ func runValidate() error {
 
 	if len(files) == 0 {
 		printWarning("no .yaml files found in %s", policiesDir)
-		printDimmed("Add policy files to this directory — see 'auvis init' for examples")
+		printDimmed("  Tip: Add policy files to this directory — run 'auvis init' for examples.")
+		printDimmed("  Run 'auvis --help' for CLI reference.")
 		fmt.Println()
 		printResults(nil, errors, warnings)
 		return nil

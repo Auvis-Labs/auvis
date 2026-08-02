@@ -35,6 +35,8 @@ var logsCmd = &cobra.Command{
 		if _, err := os.Stat(auditPath); os.IsNotExist(err) {
 			if !logFollow {
 				printWarning("No audit logs found yet (audit file %s does not exist)", cfg.AuditFile)
+				printDimmed("  Tip: Start the gateway with 'auvis dev' and send HTTP requests to generate logs.")
+				printDimmed("  Run 'auvis --help' for CLI reference.")
 				return nil
 			}
 			printInfo("Waiting for audit log file to be created: %s ...", cfg.AuditFile)

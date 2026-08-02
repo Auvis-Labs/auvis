@@ -13,7 +13,7 @@ import (
 // Default auvis.yaml content — written to the project root on `auvis init`.
 // Intentionally verbose with comments — first-time developers read this file.
 const defaultAuvisYAML = `# auvis.yaml — AUVIS gateway configuration
-# Documentation: https://auvis.io/docs/configuration
+# Documentation: https://auvis.dev/docs/configuration
 #
 # This file configures the AUVIS gateway for this project.
 # Define WHERE the gateway runs and HOW it behaves.
@@ -82,6 +82,16 @@ gateway:
   #     password: <pinecone_api_key>
 `
 
+// Default .env content — created on `auvis init` if missing.
+const defaultDotEnv = `# .env — AUVIS Gateway Environment Variables
+# Documentation: https://auvis.dev/docs/configuration
+
+# AUVIS_UPSTREAM defines the target backend API or microservice URL that AUVIS proxies requests to.
+# In development, set this to your local backend server (e.g. http://localhost:8000).
+# In production, set this to your upstream cluster endpoint or internal load balancer.
+AUVIS_UPSTREAM=http://localhost:8000
+`
+
 // Default policy directory structure — created on `auvis init`.
 // Each file is a domain-scoped template the developer fills in.
 var defaultPolicies = map[string]string{
@@ -97,7 +107,7 @@ var defaultPolicies = map[string]string{
 #   deny           — block access entirely, return 403
 #   llm_intercept  — scan and mask PII before forwarding to an LLM API
 #
-# Documentation: https://auvis.io/docs/policies
+# Documentation: https://auvis.dev/docs/policies
 # ─────────────────────────────────────────────────────────────────
 
 policies:
@@ -196,6 +206,17 @@ func runInit() error {
 		skipped = append(skipped, cfgFile)
 	}
 
+	// ── 1b. Write .env ─────────────────────────────────────────────
+	envPath := filepath.Join(cwd, ".env")
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		if err := os.WriteFile(envPath, []byte(defaultDotEnv), 0644); err != nil {
+			return fmt.Errorf("writing .env: %w", err)
+		}
+		created = append(created, ".env")
+	} else {
+		skipped = append(skipped, ".env")
+	}
+
 	// ── 2. Create policies/ directory ────────────────────────────
 	policiesPath := filepath.Join(cwd, policiesDir)
 	if _, err := os.Stat(policiesPath); os.IsNotExist(err) {
@@ -247,7 +268,7 @@ func runInit() error {
 	fmt.Println()
 	cyan.Println("    auvis dev")
 	fmt.Println()
-	printDimmed("Documentation: https://auvis.io/docs")
+	printDimmed("Documentation: https://auvis.dev/docs")
 	fmt.Println()
 
 	return nil

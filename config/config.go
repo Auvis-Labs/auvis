@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
@@ -93,7 +94,11 @@ type yamlConfig struct {
 }
 
 func LoadConfig(path string) Config {
-	godotenv.Load()
+	ensureDotEnvExists()
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("WARN: No .env file loaded")
+	}
 
 	// Default values
 	cfg := Config{
@@ -288,6 +293,7 @@ func LoadConfig(path string) Config {
 		if cfg.Salt != "" {
 			salt = cfg.Salt
 		} else {
+			log.Println("WARN: AUVIS_SALT is empty. Using insecure default salt fallback.")
 			salt = "default-auvis-salt-value"
 		}
 	}
@@ -302,4 +308,32 @@ func getEnvWithFallback(preferred, fallback string) string {
 		return val
 	}
 	return os.Getenv(fallback)
+}
+
+func ensureDotEnvExists() {
+	filePath := ".env"
+	defaultVars := map[string]string{
+		"AUVIS_SALT":        "dev-mock-salt-sha256-secret-key-109283",
+		"AUVIS_GATEWAY_URL": "http://localhost:8090/patients",
+		"GEMINI_API_KEY":    "mock_gemini_api_key_placeholder",
+		"AUVIS_IDP_URL":     "http://localhost:8080/auth",
+	}
+
+	var existingContent string
+	bytes, err := os.ReadFile(filePath)
+	if err == nil {
+		existingContent = string(bytes)
+	}
+
+	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	for k, v := range defaultVars {
+		if !strings.Contains(existingContent, k+"=") {
+			_, _ = f.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+		}
+	}
 }

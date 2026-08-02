@@ -22,9 +22,9 @@ import (
 	"github.com/cridiv/Auvis/audit"
 	"github.com/cridiv/Auvis/config"
 	"github.com/cridiv/Auvis/metrics"
+	"github.com/cridiv/Auvis/pii"
 	"github.com/cridiv/Auvis/pipeline"
 	"github.com/cridiv/Auvis/pipeline/destination"
-	"github.com/cridiv/Auvis/pii"
 	"github.com/cridiv/Auvis/policy"
 	"github.com/cridiv/Auvis/transform"
 	"github.com/cridiv/Auvis/types"
@@ -379,7 +379,7 @@ func Handler(
 				Schema: reqCtx.Resource,
 				Data:   dataPayload,
 				Metadata: map[string]any{
-					"user_id":         reqCtx.UserID,
+					"user_id":          reqCtx.UserID,
 					"user_role":        reqCtx.UserRole,
 					"method":           reqCtx.Method,
 					"upstream_status":  info.statusCode,

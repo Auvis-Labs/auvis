@@ -58,6 +58,22 @@ type Config struct {
 
 // yamlConfig represents the structure of auvis.yaml
 type yamlConfig struct {
+	// Root level options
+	PortRoot               int                  `yaml:"port"`
+	PoliciesDirRoot        string               `yaml:"policies_dir"`
+	AuditFileRoot          string               `yaml:"audit_file"`
+	AuditMaxSizeMBRoot     int                  `yaml:"audit_max_size_mb"`
+	AuditMaxAgeDaysRoot    int                  `yaml:"audit_max_age_days"`
+	AuditFsyncIntervalRoot string               `yaml:"audit_fsync_interval"`
+	ShutdownTimeoutSecRoot int                  `yaml:"shutdown_timeout_seconds"`
+	IdpURLRoot             string               `yaml:"idp_url"`
+	SaltRoot               string               `yaml:"salt"`
+	UpstreamRoot           string               `yaml:"upstream"`
+	UpstreamsRoot          []UpstreamConfig     `yaml:"upstreams"`
+	CircuitBreakerRoot     CircuitBreakerConfig `yaml:"circuit_breaker"`
+	DestinationRoot        DestinationConfig    `yaml:"destination"`
+	DestinationsRoot       []DestinationConfig  `yaml:"destinations"`
+
 	Gateway struct {
 		Port               int                  `yaml:"port"`
 		PoliciesDir        string               `yaml:"policies_dir"`
@@ -71,10 +87,8 @@ type yamlConfig struct {
 		Upstream           string               `yaml:"upstream"`
 		Upstreams          []UpstreamConfig     `yaml:"upstreams"`
 		CircuitBreaker     CircuitBreakerConfig `yaml:"circuit_breaker"`
-		// Legacy singular form — still supported for backward compatibility.
-		Destination DestinationConfig `yaml:"destination"`
-		// New list form — takes precedence over the singular form when non-empty.
-		Destinations []DestinationConfig `yaml:"destinations"`
+		Destination        DestinationConfig    `yaml:"destination"`
+		Destinations       []DestinationConfig  `yaml:"destinations"`
 	} `yaml:"gateway"`
 }
 
@@ -106,51 +120,130 @@ func LoadConfig(path string) Config {
 			if err := yaml.Unmarshal(b, &y); err != nil {
 				log.Printf("failed to parse config %s: %v", path, err)
 			} else {
-				if y.Gateway.Port != 0 {
-					cfg.Port = fmt.Sprintf("%d", y.Gateway.Port)
+				// 1. Port
+				port := y.PortRoot
+				if port == 0 {
+					port = y.Gateway.Port
 				}
-				if y.Gateway.PoliciesDir != "" {
-					cfg.PoliciesDir = y.Gateway.PoliciesDir
-				}
-				if y.Gateway.AuditFile != "" {
-					cfg.AuditFile = y.Gateway.AuditFile
-				}
-				if y.Gateway.AuditMaxSizeMB != 0 {
-					cfg.AuditMaxSizeMB = y.Gateway.AuditMaxSizeMB
-				}
-				if y.Gateway.AuditMaxAgeDays != 0 {
-					cfg.AuditMaxAgeDays = y.Gateway.AuditMaxAgeDays
-				}
-				if y.Gateway.AuditFsyncInterval != "" {
-					cfg.AuditFsyncInterval = y.Gateway.AuditFsyncInterval
-				}
-				if y.Gateway.ShutdownTimeoutSec != 0 {
-					cfg.ShutdownTimeoutSec = y.Gateway.ShutdownTimeoutSec
-				}
-				if y.Gateway.IdpURL != "" {
-					cfg.IdpURL = y.Gateway.IdpURL
-				}
-				if y.Gateway.Salt != "" {
-					cfg.Salt = y.Gateway.Salt
-				}
-				if y.Gateway.Upstream != "" {
-					cfg.UpstreamURL = y.Gateway.Upstream
-				}
-				if len(y.Gateway.Upstreams) > 0 {
-					cfg.Upstreams = y.Gateway.Upstreams
-				}
-				if y.Gateway.CircuitBreaker.MaxFailures != 0 {
-					cfg.CircuitBreaker.MaxFailures = y.Gateway.CircuitBreaker.MaxFailures
-				}
-				if y.Gateway.CircuitBreaker.CooldownSeconds != 0 {
-					cfg.CircuitBreaker.CooldownSeconds = y.Gateway.CircuitBreaker.CooldownSeconds
+				if port != 0 {
+					cfg.Port = fmt.Sprintf("%d", port)
 				}
 
-				// Prefer the new list form; fall back to legacy singular form.
-				if len(y.Gateway.Destinations) > 0 {
-					cfg.Destinations = y.Gateway.Destinations
+				// 2. Policies Dir
+				policiesDir := y.PoliciesDirRoot
+				if policiesDir == "" {
+					policiesDir = y.Gateway.PoliciesDir
+				}
+				if policiesDir != "" {
+					cfg.PoliciesDir = policiesDir
+				}
+
+				// 3. Audit File
+				auditFile := y.AuditFileRoot
+				if auditFile == "" {
+					auditFile = y.Gateway.AuditFile
+				}
+				if auditFile != "" {
+					cfg.AuditFile = auditFile
+				}
+
+				// 4. Audit Max Size
+				maxSize := y.AuditMaxSizeMBRoot
+				if maxSize == 0 {
+					maxSize = y.Gateway.AuditMaxSizeMB
+				}
+				if maxSize != 0 {
+					cfg.AuditMaxSizeMB = maxSize
+				}
+
+				// 5. Audit Max Age
+				maxAge := y.AuditMaxAgeDaysRoot
+				if maxAge == 0 {
+					maxAge = y.Gateway.AuditMaxAgeDays
+				}
+				if maxAge != 0 {
+					cfg.AuditMaxAgeDays = maxAge
+				}
+
+				// 6. Audit Fsync Interval
+				fsync := y.AuditFsyncIntervalRoot
+				if fsync == "" {
+					fsync = y.Gateway.AuditFsyncInterval
+				}
+				if fsync != "" {
+					cfg.AuditFsyncInterval = fsync
+				}
+
+				// 7. Shutdown Timeout
+				shutdown := y.ShutdownTimeoutSecRoot
+				if shutdown == 0 {
+					shutdown = y.Gateway.ShutdownTimeoutSec
+				}
+				if shutdown != 0 {
+					cfg.ShutdownTimeoutSec = shutdown
+				}
+
+				// 8. Idp URL
+				idp := y.IdpURLRoot
+				if idp == "" {
+					idp = y.Gateway.IdpURL
+				}
+				if idp != "" {
+					cfg.IdpURL = idp
+				}
+
+				// 9. Salt
+				saltVal := y.SaltRoot
+				if saltVal == "" {
+					saltVal = y.Gateway.Salt
+				}
+				if saltVal != "" {
+					cfg.Salt = saltVal
+				}
+
+				// 10. Upstream Target
+				upstream := y.UpstreamRoot
+				if upstream == "" {
+					upstream = y.Gateway.Upstream
+				}
+				if upstream != "" {
+					cfg.UpstreamURL = upstream
+				}
+
+				// 11. Multi Upstreams
+				upstreams := y.UpstreamsRoot
+				if len(upstreams) == 0 {
+					upstreams = y.Gateway.Upstreams
+				}
+				if len(upstreams) > 0 {
+					cfg.Upstreams = upstreams
+				}
+
+				// 12. Circuit Breaker
+				cb := y.CircuitBreakerRoot
+				if cb.MaxFailures == 0 {
+					cb = y.Gateway.CircuitBreaker
+				}
+				if cb.MaxFailures != 0 {
+					cfg.CircuitBreaker.MaxFailures = cb.MaxFailures
+				}
+				if cb.CooldownSeconds != 0 {
+					cfg.CircuitBreaker.CooldownSeconds = cb.CooldownSeconds
+				}
+
+				// 13. Destinations
+				var dests []DestinationConfig
+				if len(y.DestinationsRoot) > 0 {
+					dests = y.DestinationsRoot
+				} else if y.DestinationRoot.Type != "" {
+					dests = []DestinationConfig{y.DestinationRoot}
+				} else if len(y.Gateway.Destinations) > 0 {
+					dests = y.Gateway.Destinations
 				} else if y.Gateway.Destination.Type != "" {
-					cfg.Destinations = []DestinationConfig{y.Gateway.Destination}
+					dests = []DestinationConfig{y.Gateway.Destination}
+				}
+				if len(dests) > 0 {
+					cfg.Destinations = dests
 				}
 
 				// Apply global circuit breaker defaults to destinations that don't override them

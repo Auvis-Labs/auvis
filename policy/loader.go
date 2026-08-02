@@ -24,6 +24,18 @@ func NewStore() *Store {
 	return &Store{policies: make(map[string]*EffectivePolicy)}
 }
 
+// NewStoreFromPolicies compiles a slice of raw policies directly into a new Store.
+// This allows constructing in-memory policy stores without requiring disk I/O.
+func NewStoreFromPolicies(policies []Policy) (*Store, error) {
+	compiled, err := compile(policies)
+	if err != nil {
+		return nil, fmt.Errorf("compiling policies: %w", err)
+	}
+	s := NewStore()
+	s.swap(compiled)
+	return s, nil
+}
+
 // Lookup returns the best-matching effective policy for a role+resource+service+source+destination combination.
 // Matching is by longest prefix for resource and wildcard matching for services, sources, and destinations.
 // The trigger parameter filters policies by execution context ("read" or "ingest").

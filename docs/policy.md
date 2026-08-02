@@ -67,7 +67,7 @@ Describes where the actual records live inside the API response envelope.
 
 | Field | YAML key | Description |
 |---|---|---|
-| `DataPath` | `data_path` | gjson dot-notation path to records (empty = root). Examples: `"data"`, `"result.users"` |
+| `DataPath` | `data_path` | gjson dot-notation path to records (empty = root). Set to `"auto"` (or `"detect"`) to auto-detect common envelope wrappers (`"data"`, `"result"`, `"payload"`, etc.). |
 | `Array` | `array` | Optional explicit array hint (nil = auto-detect from value type) |
 | `Rehydrate` | `rehydrate` | If `true`, re-substitutes masked tokens in LLM responses (used with `llm_intercept`) |
 
@@ -80,6 +80,9 @@ Describes where the actual records live inside the API response envelope.
 | `{"data": [...]}` | `"data"` | auto/omit |
 | `{"result": {"users": [...]}}` | `"result.users"` | auto/omit |
 | `{"data": {...}}` | `"data"` | `false` |
+| `{"payload": {...}}` | `"auto"` | auto/omit |
+
+> 💡 **Smart Envelope Diagnostics**: If `data_path` is left empty (`""`) but target fields exist inside an envelope wrapper (e.g. `{"data": {"email": "..."}}`), Auvis logs a dev hint warning suggesting the correct `data_path: "data"`.
 
 ---
 

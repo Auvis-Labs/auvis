@@ -32,6 +32,7 @@ type Match struct {
 
 // Response describes where the actual data lives inside the API response.
 // Both fields are optional — if omitted, the transform operates on the root.
+// Set data_path: "auto" (or "detect") to auto-detect common envelope wrappers ("data", "result", "payload", etc.).
 //
 // Example API shapes and what to set:
 //
@@ -40,10 +41,12 @@ type Match struct {
 //	{"data": [...]}              → data_path: "data"
 //	{"result": {"users": [...]}} → data_path: "result.users"
 //	{"data": {...}}              → data_path: "data"  array: false
+//	{"payload": {...}}           → data_path: "auto"
 type Response struct {
 	// DataPath is the dot-notation path to the records inside the response.
 	// Empty string means the records are at the root.
 	// Supports gjson dot-notation: "data", "result.users", "_embedded.users"
+	// Set to "auto" or "detect" to automatically inspect standard envelope wrappers.
 	DataPath string `yaml:"data_path"`
 
 	// Array hints whether the target is an array of records or a single object.

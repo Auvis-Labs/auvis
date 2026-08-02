@@ -125,12 +125,8 @@ func apply(body []byte, reqCtx types.RequestContext, store *policy.Store) ([]byt
 	// If data_path is set (e.g. "data" or "result.users"), we drill into
 	// the response to find the actual records. If it's empty, the records
 	// are at the root and we work on the whole body directly.
-	//
-	// Example — policy has data_path: "data":
-	//   input:  {"data": [...], "meta": {"total": 10}}
-	//   target: [...]          ← we only transform this part
-	//   rest:   {"meta": ...}  ← untouched, re-embedded in step 3
-	target, err := extractTarget(body, ep.Response.DataPath)
+	// If set to "auto" or "detect", we probe standard envelope wrappers.
+	target, resolvedPath, err := extractTarget(body, ep.Response.DataPath, ep)
 	if err != nil {
 		return nil, Summary{}, fmt.Errorf("extracting data_path %q: %w", ep.Response.DataPath, err)
 	}
@@ -167,20 +163,19 @@ func apply(body []byte, reqCtx types.RequestContext, store *policy.Store) ([]byt
 		return nil, Summary{}, err
 	}
 
+	// Step 2.5: Check for envelope mismatch hints if 0 fields were matched/transformed
+	if len(allMasked) == 0 && len(allRemoved) == 0 && len(allAllowed) == 0 && len(allDenied) == 0 {
+		inspectEnvelopeMismatch(body, resolvedPath, ep)
+	}
+
 	// --- Step 3: Re-embed the transformed data ---
 	//
-	// If data_path was set, we need to put the transformed records back
+	// If data_path was set (or auto-detected), we need to put the transformed records back
 	// into the original response envelope so the caller gets the full
 	// response structure they expect — just with the records modified.
-	//
-	// Example:
-	//   original: {"data": [...old...], "meta": {"total": 10}}
-	//   after:    {"data": [...masked...], "meta": {"total": 10}}
-	//
-	// If data_path was empty, reEmbed is a no-op and just returns transformed.
-	result, err := reEmbed(body, ep.Response.DataPath, transformed)
+	result, err := reEmbed(body, resolvedPath, transformed)
 	if err != nil {
-		return nil, Summary{}, fmt.Errorf("re-embedding into %q: %w", ep.Response.DataPath, err)
+		return nil, Summary{}, fmt.Errorf("re-embedding into %q: %w", resolvedPath, err)
 	}
 
 	summary := Summary{
@@ -199,25 +194,113 @@ func apply(body []byte, reqCtx types.RequestContext, store *policy.Store) ([]byt
 	return result, summary, nil
 }
 
+// CommonEnvelopeKeys lists standard API response envelope wrappers probed when data_path is "auto".
+var CommonEnvelopeKeys = []string{
+	"data", "result", "payload", "items", "received",
+	"records", "content", "response", "body", "data.items", "data.records",
+}
+
 // extractTarget drills into the response body using gjson dot-notation path.
 // If path is empty, returns the root of the body as a gjson.Result.
-//
-// Examples:
-//   extractTarget(body, "")            → root value (array or object)
-//   extractTarget(body, "data")        → body["data"]
-//   extractTarget(body, "result.users")→ body["result"]["users"]
-func extractTarget(body []byte, path string) (gjson.Result, error) {
+// If path is "auto" or "detect", probes CommonEnvelopeKeys for matching target structures.
+// Returns the extracted node, the resolved path used, and any error.
+func extractTarget(body []byte, path string, ep *policy.EffectivePolicy) (gjson.Result, string, error) {
 	if path == "" {
 		result := gjson.ParseBytes(body)
-		return result, nil
+		return result, "", nil
+	}
+
+	lower := strings.ToLower(path)
+	if lower == "auto" || lower == "detect" {
+		target, resolvedPath := autoDetectEnvelope(body, ep)
+		return target, resolvedPath, nil
 	}
 
 	result := gjson.GetBytes(body, path)
 	if !result.Exists() {
-		return gjson.Result{}, fmt.Errorf("data_path %q not found in response", path)
+		return gjson.Result{}, path, fmt.Errorf("data_path %q not found in response", path)
 	}
 
-	return result, nil
+	return result, path, nil
+}
+
+func autoDetectEnvelope(body []byte, ep *policy.EffectivePolicy) (gjson.Result, string) {
+	var fieldNames []string
+	if ep != nil {
+		for f := range ep.Rules {
+			if f != "*" {
+				fieldNames = append(fieldNames, f)
+			}
+		}
+	}
+
+	// 1. Look for an envelope key containing configured policy fields
+	if len(fieldNames) > 0 {
+		for _, envKey := range CommonEnvelopeKeys {
+			if probeEnvelopeKey(body, envKey, fieldNames) {
+				slog.Debug("Auto-detected data_path envelope from matching policy fields", "data_path", envKey)
+				return gjson.GetBytes(body, envKey), envKey
+			}
+		}
+	}
+
+	// 2. Fallback to the first existing envelope key containing object or array data
+	for _, envKey := range CommonEnvelopeKeys {
+		res := gjson.GetBytes(body, envKey)
+		if res.Exists() && (res.IsArray() || res.IsObject()) {
+			slog.Debug("Auto-detected data_path envelope candidate", "data_path", envKey)
+			return res, envKey
+		}
+	}
+
+	// Fallback to root if no envelope key exists
+	return gjson.ParseBytes(body), ""
+}
+
+func probeEnvelopeKey(body []byte, envKey string, fieldNames []string) bool {
+	res := gjson.GetBytes(body, envKey)
+	if !res.Exists() {
+		return false
+	}
+	for _, field := range fieldNames {
+		if res.IsArray() {
+			if gjson.GetBytes(body, envKey+".0."+field).Exists() || gjson.GetBytes(body, envKey+".#."+field).Exists() {
+				return true
+			}
+		} else if res.IsObject() {
+			if gjson.GetBytes(body, envKey+"."+field).Exists() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// inspectEnvelopeMismatch checks if any field rules targeted fields nested inside common envelope wrappers
+// when 0 field rules were matched at the current active data_path.
+func inspectEnvelopeMismatch(body []byte, activePath string, ep *policy.EffectivePolicy) {
+	if activePath != "" || ep == nil || len(ep.Rules) == 0 {
+		return
+	}
+
+	for ruleField := range ep.Rules {
+		if ruleField == "*" {
+			continue
+		}
+		for _, envKey := range CommonEnvelopeKeys {
+			if probeEnvelopeKey(body, envKey, []string{ruleField}) {
+				nestedPath := envKey + "." + ruleField
+				slog.Warn("Field rule target found nested inside envelope wrapper",
+					"field", ruleField,
+					"found_at", nestedPath,
+					"suggested_data_path", envKey,
+					"policies", ep.SourcePolicies,
+					"hint", fmt.Sprintf("⚠️ Field %q was found inside %q. Did you mean to set 'data_path: %q' in your response policy?", ruleField, nestedPath, envKey),
+				)
+				break
+			}
+		}
+	}
 }
 
 // reEmbed puts the transformed data back into the original envelope.

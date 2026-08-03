@@ -75,16 +75,26 @@ export default function Home() {
 
   const [liveFeed, setLiveFeed] = useState<GovernedRecord[]>([]);
 
+  const eventWindowRef = useRef<number[]>([]);
+  const lastEventTimeRef = useRef<number>(0);
+
   // Fix Hydration Error by mounting client-side state
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Elapsed timer ticker
+  // Elapsed timer ticker & Throughput decay ticker
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
+      
+      // Decay throughput display when stream completes
+      const now = Date.now();
+      if (now - lastEventTimeRef.current > 1200) {
+        eventWindowRef.current = [];
+        setThroughput(0);
+      }
+    }, 500);
     return () => clearInterval(timer);
   }, []);
 
@@ -115,10 +125,16 @@ export default function Home() {
             const pId = data.governed_payload?.patient_id || data.governed_payload?.id || `usr_${Math.random().toString(36).substring(2, 10)}`;
             const protectedCount = (data.fields_masked?.length || 0) + (data.fields_removed?.length || 0) || (data.rules_applied?.length || 1);
 
+            // Compute real sliding-window throughput (events/sec)
+            const now = Date.now();
+            lastEventTimeRef.current = now;
+            eventWindowRef.current.push(now);
+            eventWindowRef.current = eventWindowRef.current.filter((ts) => now - ts <= 1000);
+
             setIsLiveStream(true);
             setRecordsProcessed((prev) => prev + 1);
             setFieldsProtected((prev) => prev + protectedCount);
-            setThroughput(1 + Math.floor(Math.random() * 5));
+            setThroughput(eventWindowRef.current.length);
 
             const newRecord: GovernedRecord = {
               id: data.request_id || `req-${Math.floor(1000 + Math.random() * 9000)}`,

@@ -155,5 +155,6 @@ Every request passing through Auvis generates a structured audit log entry in `a
 
 ## 📖 Next Steps
 
+- Read **[Demo & Live Visualizer Guide](./demo.md)** for full details on the `auvisDemo` healthcare service, live SSE stream, draggable audit visualizer, and high-throughput concurrent benchmarks.
 - Read **[Policy Reference Guide](./policies.md)** to learn about dynamic PII tags, fail-closed conditions, and custom regex validators.
 - Read **[Architecture Overview](../README.md#architecture)** for deep-dive pipeline details.

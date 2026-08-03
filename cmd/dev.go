@@ -51,6 +51,13 @@ func runDev() error {
 	// Use global cfgFile flag
 	cfg := config.LoadConfig(cfgFile)
 
+	slog.Info("Auvis Gateway Environment Initialized",
+		"AUVIS_ENV", cfg.Env,
+		"ungoverned_phi_posture", cfg.UngovernedPHIPosture,
+		"port", cfg.Port,
+		"upstream", cfg.UpstreamURL,
+	)
+
 	if cfg.UpstreamURL == "" {
 		return fmt.Errorf("AUVIS_UPSTREAM_URL or AUVIS_UPSTREAM environment variable is required")
 	}

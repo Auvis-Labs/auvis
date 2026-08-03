@@ -76,7 +76,6 @@ type yamlConfig struct {
 	CircuitBreakerRoot     CircuitBreakerConfig `yaml:"circuit_breaker"`
 	DestinationRoot        DestinationConfig    `yaml:"destination"`
 	DestinationsRoot       []DestinationConfig  `yaml:"destinations"`
-	UngovernedPHIPostureRoot string             `yaml:"ungoverned_phi_posture"`
 
 	Gateway struct {
 		Port               int                  `yaml:"port"`
@@ -93,7 +92,6 @@ type yamlConfig struct {
 		CircuitBreaker     CircuitBreakerConfig `yaml:"circuit_breaker"`
 		Destination        DestinationConfig    `yaml:"destination"`
 		Destinations       []DestinationConfig  `yaml:"destinations"`
-		UngovernedPHIPosture string             `yaml:"ungoverned_phi_posture"`
 	} `yaml:"gateway"`
 }
 
@@ -281,8 +279,10 @@ func LoadConfig(path string) Config {
 	}
 
 	// Environment resolution (STRICTLY AUVIS_ENV)
-	env := strings.ToLower(strings.TrimSpace(os.Getenv("AUVIS_ENV")))
+	rawEnv := os.Getenv("AUVIS_ENV")
+	env := strings.ToLower(strings.TrimSpace(rawEnv))
 	if env == "" {
+		log.Println("WARN: AUVIS_ENV is not set. Defaulting to AUVIS_ENV=development (posture=warn). Set AUVIS_ENV=production for fail-closed enforcement.")
 		env = "development"
 	}
 	if env != "development" && env != "production" {
@@ -290,25 +290,14 @@ func LoadConfig(path string) Config {
 	}
 	cfg.Env = env
 
-	// Ungoverned PHI Posture resolution
-	posture := y.UngovernedPHIPostureRoot
-	if posture == "" {
-		posture = y.Gateway.UngovernedPHIPosture
-	}
-	if p := os.Getenv("AUVIS_UNGOVERNED_PHI_POSTURE"); p != "" {
-		posture = p
-	}
-	posture = strings.ToLower(strings.TrimSpace(posture))
-
-	if posture == "" {
-		if cfg.Env == "production" {
-			posture = "auto_mask"
-		} else {
-			posture = "warn"
-		}
-	}
-	if posture != "warn" && posture != "auto_mask" && posture != "block" {
-		log.Fatalf("FATAL: Invalid ungoverned_phi_posture='%s'. Must be 'warn', 'auto_mask', or 'block'", posture)
+	// Gateway-level ungoverned PHI posture — derived from AUVIS_ENV only.
+	// Per-policy overrides are set via the ungoverned_phi_posture field inside each policy YAML file.
+	// Do NOT read this from an environment variable — posture is a governance concern, not a runtime concern.
+	var posture string
+	if cfg.Env == "production" {
+		posture = "auto_mask"
+	} else {
+		posture = "warn"
 	}
 	cfg.UngovernedPHIPosture = posture
 
@@ -330,6 +319,9 @@ func LoadConfig(path string) Config {
 		if cfg.Salt != "" {
 			salt = cfg.Salt
 		} else {
+			if cfg.Env == "production" {
+				log.Fatalf("FATAL: AUVIS_SALT environment variable is required when AUVIS_ENV=production")
+			}
 			log.Println("WARN: AUVIS_SALT is empty. Using insecure default salt fallback.")
 			salt = "default-auvis-salt-value"
 		}

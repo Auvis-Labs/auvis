@@ -146,9 +146,9 @@ export default function Home() {
               patientId: pId,
               rawPayload: data.raw_payload,
               governedPayload: data.governed_payload,
-              rulesApplied: data.rules_applied || data.policies_applied || ['mask: patient_name', 'mask: email', 'remove: ssn'],
-              fieldsMasked: data.fields_masked || ['patient_name', 'email', 'phone', 'date_of_birth', 'notes'],
-              fieldsRemoved: data.fields_removed || ['ssn'],
+              rulesApplied: data.rules_applied || data.policies_applied || [],
+              fieldsMasked: data.fields_masked || [],
+              fieldsRemoved: data.fields_removed || [],
               fieldsExposedPHI: data.fields_exposed_phi || [],
               resource: data.resource || '/patients',
               userRole: data.user_role || 'doctor'
@@ -557,11 +557,15 @@ export default function Home() {
               {/* Rules & Compliance Badges */}
               <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
                 <span className="text-slate-400 font-medium">Rules Applied:</span>
-                {(activeAuditRecord.rulesApplied || ['mask: patient_name', 'mask: email', 'remove: ssn']).map((rule, idx) => (
-                  <span key={idx} className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold text-[11px]">
-                    {rule}
-                  </span>
-                ))}
+                {(activeAuditRecord.rulesApplied && activeAuditRecord.rulesApplied.length > 0) ? (
+                  activeAuditRecord.rulesApplied.map((rule, idx) => (
+                    <span key={idx} className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold text-[11px]">
+                      {rule}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-500 text-[11px] italic">No active rules applied</span>
+                )}
               </div>
 
               {/* Governed Result Payload */}

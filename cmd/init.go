@@ -85,11 +85,28 @@ gateway:
 // Default .env content — created on `auvis init` if missing.
 const defaultDotEnv = `# .env — AUVIS Gateway Environment Variables
 # Documentation: https://auvis.dev/docs/configuration
+#
+# Load this file before starting the gateway:
+#   export $(grep -v '^#' .env | xargs)
 
-# AUVIS_UPSTREAM_URL defines the target backend API or microservice URL that AUVIS proxies requests to.
-# In development, set this to your local backend server (e.g. http://localhost:8000).
+# ── Required ──────────────────────────────────────────────────────────────────
+
+# AUVIS_UPSTREAM_URL: Target backend API or microservice URL that AUVIS proxies to.
+# In development, set this to your local backend (e.g. http://localhost:8000).
 # In production, set this to your upstream cluster endpoint or internal load balancer.
 AUVIS_UPSTREAM_URL=http://localhost:8000
+
+# ── Environment & Security Posture ────────────────────────────────────────────
+
+# AUVIS_ENV: Execution environment. Must be 'development' or 'production'.
+# development → posture defaults to 'warn' (logs ungoverned PHI, allows traffic through)
+# production  → posture defaults to 'auto_mask' (auto-redacts ungoverned PHI, fail-closed)
+AUVIS_ENV=development
+
+# AUVIS_SALT: Secret salt phrase used for SHA-256 field anonymization (action: anonymize).
+# Required in production. Use a long, random, cryptographically secure string.
+# Generate one: openssl rand -hex 32
+AUVIS_SALT=change-me-use-openssl-rand-hex-32
 `
 
 // Default policy directory structure — created on `auvis init`.
@@ -152,6 +169,25 @@ policies:
   #       action: llm_intercept
   #   response:
   #     rehydrate: true
+
+  # ── Example 4: Shadow PHI posture override ───────────────────────
+  # ungoverned_phi_posture controls what happens when AUVIS detects sensitive
+  # patterns (SSN, email, phone, DOB, credit card) in fields NOT covered by any
+  # explicit rule in this policy. This is set per-policy, not as an env var.
+  #
+  # Options:
+  #   warn       — log a warning and set X-Auvis-Exposed-PHI header (default in development)
+  #   auto_mask  — automatically mask the value before passing through (default in production)
+  #   block      — reject the entire response with HTTP 403
+  #
+  # - name: example-strict-phi-posture
+  #   ungoverned_phi_posture: block
+  #   match:
+  #     roles: ["*"]
+  #     resource: /patients
+  #   rules:
+  #     - field: patient_name
+  #       action: mask
 `,
 }
 

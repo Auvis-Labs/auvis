@@ -735,7 +735,7 @@ func printResults(allValidPolicies []policyEntry, errors []validationError, warn
 			if w.Field != "" {
 				loc += fmt.Sprintf(" (%s)", w.Field)
 			}
-			yellow.Fprintf(os.Stdout, "  ⚠  %s: %s [%s]\n", w.Message, loc, w.File)
+			yellow.Fprintf(os.Stdout, "  ⚠  %s: %s [%s]\n", loc, w.Message, w.File)
 		}
 	}
 
@@ -751,7 +751,7 @@ func printResults(allValidPolicies []policyEntry, errors []validationError, warn
 			if e.Field != "" {
 				loc += fmt.Sprintf(" (%s)", e.Field)
 			}
-			red.Fprintf(os.Stderr, "  ✗  %s: %s [%s]\n", e.Message, loc, e.File)
+			red.Fprintf(os.Stderr, "  ✗  %s: %s [%s]\n", loc, e.Message, e.File)
 		}
 	}
 

@@ -370,8 +370,15 @@ func Handler(
 		// STEP 7.2 — Shadow PHI Passive Scan & Posture Enforcement
 		var fieldsExposedPHI []string
 		if !isLLMIntercept && info.statusCode >= 200 && info.statusCode < 300 && len(buf.Bytes()) > 0 {
-			var respPayload map[string]any
-			if err := json.Unmarshal(buf.Bytes(), &respPayload); err == nil {
+			var scanTarget map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &scanTarget); err != nil {
+				var slicePayload []any
+				if sErr := json.Unmarshal(buf.Bytes(), &slicePayload); sErr == nil {
+					scanTarget = map[string]any{"records": slicePayload}
+				}
+			}
+
+			if scanTarget != nil {
 				governedMap := make(map[string]bool)
 				for _, f := range summary.FieldsMasked {
 					governedMap[f] = true
@@ -379,15 +386,12 @@ func Handler(
 				for _, f := range summary.FieldsRemoved {
 					governedMap[f] = true
 				}
-				for _, f := range summary.FieldsAllowed {
-					governedMap[f] = true
-				}
 				for _, f := range summary.FieldsDenied {
 					governedMap[f] = true
 				}
 
 				passiveInspector := pii.NewPassiveInspector()
-				exposed := passiveInspector.ScanUngovernedPayload(respPayload, governedMap)
+				exposed := passiveInspector.ScanUngovernedPayload(scanTarget, governedMap)
 
 				if len(exposed) > 0 {
 					for _, ef := range exposed {
@@ -426,8 +430,8 @@ func Handler(
 							summary.Warnings = append(summary.Warnings, wMsg)
 							summary.FieldsMasked = append(summary.FieldsMasked, ef.Path)
 						}
-						autoMaskPayload(respPayload, exposed)
-						if newBytes, err := json.Marshal(respPayload); err == nil {
+						autoMaskPayload(scanTarget, exposed)
+						if newBytes, err := json.Marshal(scanTarget); err == nil {
 							buf.Reset()
 							buf.Write(newBytes)
 						}

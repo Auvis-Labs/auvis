@@ -19,6 +19,7 @@ import (
 	"github.com/cridiv/Auvis/config"
 	"github.com/cridiv/Auvis/pipeline"
 	"github.com/cridiv/Auvis/pipeline/destination"
+	pipelinesource "github.com/cridiv/Auvis/pipeline/source"
 	"github.com/cridiv/Auvis/policy"
 	"github.com/cridiv/Auvis/proxy"
 	"github.com/cridiv/Auvis/stream"
@@ -226,6 +227,49 @@ func runDev() error {
 
 	// Print clean startup summary on success
 	printStartupSummary(cfg.Port, cfg.UpstreamURL, n, connectedNames, skipDestinationCheck, cfg.AuditFile)
+
+	// --- Launch pipeline source consumers (Kafka, etc.) ---
+	// Each configured source gets its own Pipeline goroutine. They run until
+	// the gateway receives SIGTERM/Interrupt, at which point sourceCancel() tears them down.
+	sourceCtx, sourceCancel := context.WithCancel(context.Background())
+	defer sourceCancel()
+
+	// applyFn is the TransformFunc used by source pipelines (distinct from StreamTransformFunc used by HTTP proxy).
+	applyFn := transform.NewApplyFn(store)
+
+	if len(cfg.Sources) > 0 {
+		for i, sc := range cfg.Sources {
+			switch sc.Type {
+			case "kafka":
+				settings := sc.Settings
+				if settings == nil {
+					settings = map[string]string{}
+				}
+				// auto_offset_reset defaults to earliest so we pick up records already in the topic
+				if settings["auto_offset_reset"] == "" {
+					settings["auto_offset_reset"] = "earliest"
+				}
+				kSrc := pipelinesource.NewKafkaSource(settings, sc.Auth, sc.TLS)
+				pipelineName := fmt.Sprintf("kafka-source-%d", i)
+				p := &pipeline.Pipeline{
+					Name:            pipelineName,
+					Source:          kSrc,
+					PolicyEngine:    pipeline.NewDefaultPolicyEngine(store),
+					TransformEngine: pipeline.NewDefaultTransformEngine(applyFn),
+					Destination:     pipeline.NewNopDestination(),
+					AuditEngine:     auditLog,
+				}
+				go func(pl *pipeline.Pipeline, name string) {
+					slog.Info("Starting Kafka source pipeline", "pipeline", name, "brokers", settings["brokers"], "topic", settings["topic"])
+					if err := pl.Run(sourceCtx); err != nil && err != context.Canceled {
+						slog.Error("Kafka source pipeline exited with error", "pipeline", name, "error", err)
+					}
+				}(p, pipelineName)
+			default:
+				slog.Warn("Unknown source type, skipping", "type", sc.Type, "index", i)
+			}
+		}
+	}
 
 	go func() {
 		slog.Info("AUVIS gateway server running", "port", cfg.Port, "upstream", cfg.UpstreamURL)

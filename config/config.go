@@ -37,6 +37,15 @@ type DestinationConfig struct {
 	CircuitBreaker CircuitBreakerConfig   `yaml:"circuit_breaker"`
 }
 
+// SourceConfig holds configuration for an inbound pipeline data source (e.g. Kafka).
+type SourceConfig struct {
+	// Type is the source driver name: "kafka", "kinesis", etc.
+	Type     string                 `yaml:"type"`
+	Settings map[string]string      `yaml:"settings"`
+	Auth     pipelinecfg.AuthConfig `yaml:"auth"`
+	TLS      pipelinecfg.TLSConfig  `yaml:"tls"`
+}
+
 type Config struct {
 	Port               string
 	UpstreamURL        string
@@ -49,14 +58,13 @@ type Config struct {
 	Salt               string
 	ShutdownTimeoutSec int
 	CircuitBreaker     CircuitBreakerConfig
-	Env                string // "development" | "production" (strictly from AUVIS_ENV, default: "development")
-	UngovernedPHIPosture string // "warn" | "auto_mask" | "block"
-	// Upstreams is the list of static upstream target services.
-	Upstreams []UpstreamConfig
-	// Destinations is the ordered list of configured data sinks.
-	// A single destination is represented as a one-element slice.
-	// Zero-length means no destination is configured.
+	Env                string // "development" | "production"
+	UngovernedPHIPosture string
+	Upstreams    []UpstreamConfig
 	Destinations []DestinationConfig
+	// Sources is the list of inbound pipeline data sources (e.g. Kafka).
+	// Each source runs an independent consumer goroutine inside auvis dev.
+	Sources []SourceConfig
 }
 
 // yamlConfig represents the structure of auvis.yaml
@@ -76,6 +84,7 @@ type yamlConfig struct {
 	CircuitBreakerRoot     CircuitBreakerConfig `yaml:"circuit_breaker"`
 	DestinationRoot        DestinationConfig    `yaml:"destination"`
 	DestinationsRoot       []DestinationConfig  `yaml:"destinations"`
+	SourcesRoot            []SourceConfig       `yaml:"sources"`
 
 	Gateway struct {
 		Port               int                  `yaml:"port"`
@@ -262,6 +271,11 @@ func LoadConfig(path string) Config {
 					if cfg.Destinations[i].CircuitBreaker.CooldownSeconds == 0 {
 						cfg.Destinations[i].CircuitBreaker.CooldownSeconds = cfg.CircuitBreaker.CooldownSeconds
 					}
+				}
+
+				// Wire sources: top-level `sources:` block only (no gateway nesting for sources)
+				if len(y.SourcesRoot) > 0 {
+					cfg.Sources = y.SourcesRoot
 				}
 			}
 		}

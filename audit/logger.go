@@ -88,6 +88,11 @@ func (l *Logger) Write(e Entry) {
 	}
 }
 
+// Log satisfies the pipeline.AuditEngine interface.
+func (l *Logger) Log(e Entry) {
+	l.Write(e)
+}
+
 // Close flushes all pending entries and shuts down the background writer.
 func (l *Logger) Close() {
 	l.once.Do(func() {

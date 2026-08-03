@@ -11,6 +11,7 @@ import (
 	"github.com/cridiv/Auvis/audit"
 	"github.com/cridiv/Auvis/metrics"
 	"github.com/cridiv/Auvis/policy"
+	"github.com/cridiv/Auvis/stream"
 	"github.com/cridiv/Auvis/transform"
 )
 
@@ -332,6 +333,20 @@ func (p *Pipeline) processRecord(ctx context.Context, record Record) {
 	if p.AuditEngine != nil {
 		p.AuditEngine.Log(auditEntry)
 	}
+
+	// --- Broadcast event over SSE to visualizer clients ---
+	stream.GlobalBroadcaster.Publish(stream.StreamEvent{
+		Timestamp:       time.Now().UTC(),
+		RequestID:       requestID,
+		Source:          record.Source,
+		Resource:        record.Source,
+		UserRole:        userRole,
+		RawPayload:      record.Data,
+		GovernedPayload: transformedData,
+		RulesApplied:    policiesApplied,
+		FieldsMasked:    fieldsMasked,
+		FieldsRemoved:   fieldsRemoved,
+	})
 
 	// --- Update Ingestion Metrics ---
 	atomic.AddUint64(&p.metrics.ProcessedCount, 1)

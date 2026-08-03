@@ -54,6 +54,29 @@ gateway:
 
 ---
 
+## 📡 Streaming Pipeline Sources (`sources`)
+
+In addition to proxying HTTP traffic, Auvis can continuously consume and govern real-time data streams (e.g. Kafka topics). Inbound stream sources are configured under the top-level `sources` array in `auvis.yaml`.
+
+```yaml
+sources:
+  - type: kafka
+    settings:
+      brokers: "localhost:9092"
+      topic: "patient-records"
+      group_id: "auvis-consumer-group"
+      auto_offset_reset: "earliest"  # "earliest" | "latest" (default: "earliest")
+    auth:
+      type: sasl_ssl
+      username: "my-kafka-user"
+      password: "my-kafka-password"
+      sasl_mechanism: "PLAIN"
+```
+
+Each configured source launches an independent, concurrent pipeline worker inside `auvis dev`. Ingested records pass through policy matching (matched against policies with `on: ["ingest"]`), undergo field transformations, and broadcast audit events over `/auvis/stream`.
+
+---
+
 ## 🚦 Operational & Diagnostic Endpoints
 
 Auvis automatically exposes internal operational endpoints registered before policy proxying (completely excluded from policy checks and audit logging):

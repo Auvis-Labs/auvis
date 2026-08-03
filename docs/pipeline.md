@@ -7,20 +7,58 @@ The `pipeline` module implements Auvis's continuous streaming data ingestion eng
 ## 📂 File Index
 
 - [`pipeline.go`](#1-pipelinego) — Core interfaces, `Pipeline` struct, execution loop, panic recovery, audit integration, and metrics.
-- [`record.go`](#2-recordgo) — `Record` struct representing a single stream message.
-- [`source.go`](#3-sourcego) — `Source` interface for data stream consumers.
-- [`destination.go`](#4-destinationgo) — `Destination` interface for governed data storage sinks.
-- [`registry.go`](#5-registrygo) — Global pipeline registry for dynamic pipeline instantiation.
-- [`metrics.go`](#6-metricsgo) — `Metrics` and `MetricsSnapshot` types.
-- [`policy_engine.go`](#7-policyenginego) — `PolicyEngine` bridge interface.
-- [`config/`](#8-config-sub-package) — Pipeline YAML configuration models and loaders.
-- [`decoder/`](#9-decoder-sub-package) — JSON, Avro, Protobuf decoders.
-- [`source/`](#10-source-sub-package) — Kafka source, DLQ writer, Prometheus reporter.
-- [`destination/`](#11-destination-sub-package) — Destination drivers and circuit breakers.
+- [`pipeline_adapters.go`](#2-pipeline_adaptersgo) — `NopDestination` and `DefaultTransformEngine` — gateway-wired adapters for source pipeline use.
+- [`record.go`](#3-recordgo) — `Record` struct representing a single stream message.
+- [`source.go`](#4-sourcego) — `Source` interface for data stream consumers.
+- [`destination.go`](#5-destinationgo) — `Destination` interface for governed data storage sinks.
+- [`registry.go`](#6-registrygo) — Global pipeline registry for dynamic pipeline instantiation.
+- [`metrics.go`](#7-metricsgo) — `Metrics` and `MetricsSnapshot` types.
+- [`policy_engine.go`](#8-policyenginego) — `PolicyEngine` bridge interface.
+- [`config/`](#9-config-sub-package) — Pipeline YAML configuration models and loaders.
+- [`decoder/`](#10-decoder-sub-package) — JSON, Avro, Protobuf decoders.
+- [`source/`](#11-source-sub-package) — Kafka source, DLQ writer, Prometheus reporter.
+- [`destination/`](#12-destination-sub-package) — Destination drivers and circuit breakers.
 
 ---
 
 ## 1. `pipeline.go`
+
+---
+
+## 2. `pipeline_adapters.go`
+
+Gateway-wired adapters used when `auvis dev` launches source pipeline consumers. These bridge the `Pipeline` struct to gateway components without requiring a full destination sink or custom transform wiring.
+
+### `NopDestination`
+
+A no-op implementation of the `Destination` interface. Used when a source pipeline (e.g. Kafka) has no configured downstream data sink — records are governance-evaluated, transformed, and audit-logged, but not written anywhere externally.
+
+```go
+func NewNopDestination() *NopDestination
+```
+
+All methods (`Connect`, `WriteRecord`, `Flush`, `Close`) return `nil` immediately.
+
+---
+
+### `DefaultTransformEngine`
+
+Wraps `transform.TransformFunc` to satisfy the `pipeline.TransformEngine` interface.
+
+```go
+func NewDefaultTransformEngine(fn transform.TransformFunc) *DefaultTransformEngine
+```
+
+**Transform flow:**
+1. JSON-encodes `record.Data` into bytes.
+2. Builds a `types.RequestContext` from the record's `Source`, user metadata, and `trigger: "ingest"`.
+3. Calls `fn(raw, reqCtx)` — runs the full policy-aware transform including masking, removal, anonymization.
+4. JSON-decodes the governed output back into `map[string]any`.
+5. Returns `(governedData, summary, error)`.
+
+If `ep == nil` (no matching policy), the record's original data is passed through unchanged.
+
+---
 
 ### Interfaces
 

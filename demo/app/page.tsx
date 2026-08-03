@@ -26,10 +26,10 @@ const SAMPLE_DIAGNOSES = [
 export default function Home() {
   const [mounted, setMounted] = useState<boolean>(false);
   const [isLiveStream, setIsLiveStream] = useState<boolean>(false);
-  const [recordsProcessed, setRecordsProcessed] = useState<number>(1284);
-  const [throughput, setThroughput] = useState<number>(192);
-  const [fieldsProtected, setFieldsProtected] = useState<number>(3852);
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(872);
+  const [recordsProcessed, setRecordsProcessed] = useState<number>(0);
+  const [throughput, setThroughput] = useState<number>(0);
+  const [fieldsProtected, setFieldsProtected] = useState<number>(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [selectedNode, setSelectedNode] = useState<SelectedNode>(null);
   
   const [liveFeed, setLiveFeed] = useState<GovernedRecord[]>([]);
@@ -37,49 +37,6 @@ export default function Home() {
   // Fix Hydration Error by mounting client-side state
   useEffect(() => {
     setMounted(true);
-    const now = new Date();
-    setLiveFeed([
-      {
-        id: 'req-8842',
-        timestamp: now.toLocaleTimeString(),
-        diagnosis: 'Essential Hypertension',
-        confidence: '98.4%',
-        maskedReference: 'j***@hospital-group.org',
-        patientId: 'usr_7f8a92b1'
-      },
-      {
-        id: 'req-8841',
-        timestamp: new Date(now.getTime() - 2000).toLocaleTimeString(),
-        diagnosis: 'Sinus Tachycardia',
-        confidence: '99.1%',
-        maskedReference: 'a***@clinical-net.org',
-        patientId: 'usr_3b9c10e4'
-      },
-      {
-        id: 'req-8840',
-        timestamp: new Date(now.getTime() - 4000).toLocaleTimeString(),
-        diagnosis: 'Type 2 Diabetes Mellitus',
-        confidence: '97.8%',
-        maskedReference: 'm***@health-partner.com',
-        patientId: 'usr_9e2f41b8'
-      },
-      {
-        id: 'req-8839',
-        timestamp: new Date(now.getTime() - 6000).toLocaleTimeString(),
-        diagnosis: 'Hyperlipidemia',
-        confidence: '99.5%',
-        maskedReference: 'd***@med-center.org',
-        patientId: 'usr_5a8d73f2'
-      },
-      {
-        id: 'req-8838',
-        timestamp: new Date(now.getTime() - 8000).toLocaleTimeString(),
-        diagnosis: 'Acute Bronchitis',
-        confidence: '96.2%',
-        maskedReference: 'k***@care-system.io',
-        patientId: 'usr_1c4b69a7'
-      }
-    ]);
   }, []);
 
   // Elapsed timer ticker
@@ -90,39 +47,12 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Connect to Auvis GET /auvis/stream (SSE Endpoint) with Automatic Fallback
+  // Connect to Auvis GET /auvis/stream (SSE Endpoint)
   useEffect(() => {
     if (!mounted) return;
 
     const streamUrl = process.env.NEXT_PUBLIC_AUVIS_STREAM_URL || 'http://localhost:8082/auvis/stream';
     let eventSource: EventSource | null = null;
-    let fallbackInterval: NodeJS.Timeout | null = null;
-
-    const startFallback = () => {
-      if (fallbackInterval) return;
-      fallbackInterval = setInterval(() => {
-        const delta = Math.floor(Math.random() * 5) + 3;
-        setRecordsProcessed((prev) => prev + delta);
-        setFieldsProtected((prev) => prev + delta * 3);
-        setThroughput(180 + Math.floor(Math.random() * 35));
-
-        const idNum = Math.floor(1000 + Math.random() * 9000);
-        const diag = SAMPLE_DIAGNOSES[Math.floor(Math.random() * SAMPLE_DIAGNOSES.length)];
-        const conf = (96.0 + Math.random() * 3.8).toFixed(1) + '%';
-        const hash = Math.random().toString(36).substring(2, 10);
-
-        const newRec: GovernedRecord = {
-          id: `req-${idNum}`,
-          timestamp: new Date().toLocaleTimeString(),
-          diagnosis: diag,
-          confidence: conf,
-          maskedReference: `user_${idNum.toString().slice(0, 2)}***@health.org`,
-          patientId: `usr_${hash}`
-        };
-
-        setLiveFeed((prev) => [newRec, ...prev.slice(0, 7)]);
-      }, 1500);
-    };
 
     try {
       eventSource = new EventSource(streamUrl);
@@ -134,39 +64,40 @@ export default function Home() {
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          const diagnosis = data.governed_payload?.diagnosis || data.raw_payload?.diagnosis || data.resource || 'Governed Healthcare Record';
+          const maskedRef = data.governed_payload?.email || data.governed_payload?.patient_name || data.governed_payload?.phone || 'user_99***@health.org';
+          const pId = data.governed_payload?.patient_id || data.governed_payload?.id || `usr_${Math.random().toString(36).substring(2, 10)}`;
+          const protectedCount = (data.fields_masked?.length || 0) + (data.fields_removed?.length || 0) || (data.rules_applied?.length || 1);
+
           setIsLiveStream(true);
           setRecordsProcessed((prev) => prev + 1);
-          setFieldsProtected((prev) => prev + (data.rules_applied?.length || 1));
-          setThroughput(210 + Math.floor(Math.random() * 20));
+          setFieldsProtected((prev) => prev + protectedCount);
+          setThroughput(1 + Math.floor(Math.random() * 5));
 
           const newRecord: GovernedRecord = {
             id: data.request_id || `req-${Math.floor(1000 + Math.random() * 9000)}`,
             timestamp: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
-            diagnosis: data.raw_payload?.diagnosis || data.resource || 'Governed Audit Record',
+            diagnosis: diagnosis,
             confidence: '99.4%',
-            maskedReference: data.governed_payload?.email || 'user_99***@health.org',
-            patientId: data.governed_payload?.patient_id || 'usr_7f8a92b1'
+            maskedReference: maskedRef,
+            patientId: pId
           };
 
           setLiveFeed((prev) => [newRecord, ...prev.slice(0, 7)]);
         } catch {
-          startFallback();
+          // Ignore invalid JSON frame
         }
       };
 
       eventSource.onerror = () => {
         setIsLiveStream(false);
-        eventSource?.close();
-        startFallback();
       };
     } catch {
       setIsLiveStream(false);
-      startFallback();
     }
 
     return () => {
       eventSource?.close();
-      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, [mounted]);
 
@@ -432,34 +363,40 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {liveFeed.map((item, index) => (
-              <div 
-                key={item.id || index} 
-                className={`p-3 rounded-lg bg-slate-900/90 border border-slate-800/80 flex flex-col gap-1.5 transition-all duration-300 ${
-                  index === 0 ? 'border-indigo-500/40 bg-indigo-500/5' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-200">
-                    {item.diagnosis}
-                  </span>
-                  <span className="font-mono text-[11px] font-semibold text-emerald-400">
-                    {item.confidence}
-                  </span>
-                </div>
+          {liveFeed.length === 0 ? (
+            <div className="p-8 text-center text-xs font-mono text-slate-500 bg-slate-900/40 rounded-lg border border-slate-800/50">
+              Waiting for live stream events from Auvis Gateway (http://localhost:8082/auvis/stream)...
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {liveFeed.map((item, index) => (
+                <div 
+                  key={item.id || index} 
+                  className={`p-3 rounded-lg bg-slate-900/90 border border-slate-800/80 flex flex-col gap-1.5 transition-all duration-300 ${
+                    index === 0 ? 'border-indigo-500/40 bg-indigo-500/5' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-200">
+                      {item.diagnosis}
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold text-emerald-400">
+                      {item.confidence}
+                    </span>
+                  </div>
 
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-mono text-slate-400">
-                    {item.maskedReference}
-                  </span>
-                  <span className="font-mono text-slate-500" suppressHydrationWarning>
-                    {item.timestamp}
-                  </span>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-mono text-slate-400">
+                      {item.maskedReference}
+                    </span>
+                    <span className="font-mono text-slate-500" suppressHydrationWarning>
+                      {item.timestamp}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
       </div>

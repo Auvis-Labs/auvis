@@ -26,6 +26,7 @@ import (
 	"github.com/cridiv/Auvis/pipeline"
 	"github.com/cridiv/Auvis/pipeline/destination"
 	"github.com/cridiv/Auvis/policy"
+	"github.com/cridiv/Auvis/stream"
 	"github.com/cridiv/Auvis/transform"
 	"github.com/cridiv/Auvis/types"
 )
@@ -518,6 +519,24 @@ func Handler(
 			DestinationResults:  destResults,
 			RecordCount:         len(summary.RecordOutcomes),
 			RecordOutcomes:      mapRecordOutcomes(summary.RecordOutcomes),
+		})
+
+		// Broadcast event over Server-Sent Events (SSE) to connected UI clients
+		var governedPayload map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &governedPayload); err != nil {
+			governedPayload = map[string]any{"body": buf.String()}
+		}
+
+		stream.GlobalBroadcaster.Publish(stream.StreamEvent{
+			Timestamp:       time.Now().UTC(),
+			RequestID:       reqCtx.RequestID,
+			Source:          rawUpstream,
+			Resource:        reqCtx.Resource,
+			UserRole:        reqCtx.UserRole,
+			GovernedPayload: governedPayload,
+			RulesApplied:    summary.PoliciesApplied,
+			FieldsMasked:    summary.FieldsMasked,
+			FieldsRemoved:   summary.FieldsRemoved,
 		})
 
 		slog.Info("Request handled successfully",

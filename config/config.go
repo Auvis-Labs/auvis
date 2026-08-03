@@ -279,10 +279,10 @@ func LoadConfig(path string) Config {
 	}
 
 	// Environment resolution (STRICTLY AUVIS_ENV)
+	// Warning when unset is emitted by cmd/dev.go after slog is initialized.
 	rawEnv := os.Getenv("AUVIS_ENV")
 	env := strings.ToLower(strings.TrimSpace(rawEnv))
 	if env == "" {
-		log.Println("WARN: AUVIS_ENV is not set. Defaulting to AUVIS_ENV=development (posture=warn). Set AUVIS_ENV=production for fail-closed enforcement.")
 		env = "development"
 	}
 	if env != "development" && env != "production" {

@@ -51,7 +51,14 @@ func runDev() error {
 	// Use global cfgFile flag
 	cfg := config.LoadConfig(cfgFile)
 
-	slog.Info("Auvis Gateway Environment Initialized",
+	// AUVIS_ENV flag — must be checked AFTER slog is initialized so it surfaces correctly.
+	if os.Getenv("AUVIS_ENV") == "" {
+		slog.Warn("AUVIS_ENV is not set — defaulting to development mode (posture=warn, fail-open). Set AUVIS_ENV=production for fail-closed enforcement.")
+	} else {
+		slog.Info("AUVIS_ENV detected", "AUVIS_ENV", cfg.Env)
+	}
+
+	slog.Info("Gateway environment",
 		"AUVIS_ENV", cfg.Env,
 		"ungoverned_phi_posture", cfg.UngovernedPHIPosture,
 		"port", cfg.Port,

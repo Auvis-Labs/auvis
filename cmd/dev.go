@@ -251,12 +251,17 @@ func runDev() error {
 				}
 				kSrc := pipelinesource.NewKafkaSource(settings, sc.Auth, sc.TLS)
 				pipelineName := fmt.Sprintf("kafka-source-%d", i)
+				// Use the configured destination if available, otherwise no-op.
+				pipeDest := pipeline.Destination(pipeline.NewNopDestination())
+				if dest != nil {
+					pipeDest = dest
+				}
 				p := &pipeline.Pipeline{
 					Name:            pipelineName,
 					Source:          kSrc,
 					PolicyEngine:    pipeline.NewDefaultPolicyEngine(store),
 					TransformEngine: pipeline.NewDefaultTransformEngine(applyFn),
-					Destination:     pipeline.NewNopDestination(),
+					Destination:     pipeDest,
 					AuditEngine:     auditLog,
 				}
 				go func(pl *pipeline.Pipeline, name string) {

@@ -210,6 +210,16 @@ func Handler(
 		}
 		reqCtx := extractContext(r, identity)
 
+		// Capture raw request payload for audit stream broadcasting
+		var rawBodyBytes []byte
+		if r.Body != nil {
+			var err error
+			rawBodyBytes, err = io.ReadAll(r.Body)
+			if err == nil {
+				r.Body = io.NopCloser(bytes.NewReader(rawBodyBytes))
+			}
+		}
+
 		// STEP 1.5 — Lookup policy for LLM PII interception
 		ep := activeStore.Lookup(reqCtx.UserRole, reqCtx.Resource, reqCtx.Service, reqCtx.Source, reqCtx.Destination, reqCtx.Trigger)
 		isLLMIntercept := false
@@ -522,9 +532,16 @@ func Handler(
 		})
 
 		// Broadcast event over Server-Sent Events (SSE) to connected UI clients
+		var rawPayload map[string]any
+		if len(rawBodyBytes) > 0 {
+			_ = json.Unmarshal(rawBodyBytes, &rawPayload)
+		}
+
 		var governedPayload map[string]any
-		if err := json.Unmarshal(buf.Bytes(), &governedPayload); err != nil {
-			governedPayload = map[string]any{"body": buf.String()}
+		if len(buf.Bytes()) > 0 {
+			if err := json.Unmarshal(buf.Bytes(), &governedPayload); err != nil {
+				governedPayload = map[string]any{"body": buf.String()}
+			}
 		}
 
 		stream.GlobalBroadcaster.Publish(stream.StreamEvent{
@@ -533,6 +550,7 @@ func Handler(
 			Source:          rawUpstream,
 			Resource:        reqCtx.Resource,
 			UserRole:        reqCtx.UserRole,
+			RawPayload:      rawPayload,
 			GovernedPayload: governedPayload,
 			RulesApplied:    summary.PoliciesApplied,
 			FieldsMasked:    summary.FieldsMasked,

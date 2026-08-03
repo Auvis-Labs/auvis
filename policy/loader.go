@@ -60,8 +60,8 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 			continue
 		}
 
-		// 2. Resource prefix match
-		if !strings.HasPrefix(resource, ep.Resource) {
+		// 2. Resource prefix match — "*" matches any resource (used for ingest/pipeline policies)
+		if ep.Resource != "*" && !strings.HasPrefix(resource, ep.Resource) {
 			continue
 		}
 

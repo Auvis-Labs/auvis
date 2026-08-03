@@ -508,12 +508,12 @@ func validateSinglePolicy(file string, index int, p policyEntry, seenNames map[s
 			Field:  "match.resource",
 			Message: "resource path is required",
 		})
-	} else if !strings.HasPrefix(p.Match.Resource, "/") {
+	} else if p.Match.Resource != "*" && !strings.HasPrefix(p.Match.Resource, "/") {
 		errors = append(errors, validationError{
 			File:   file,
 			Policy: p.Name,
 			Field:  "match.resource",
-			Message: fmt.Sprintf("resource '%s' must start with /", p.Match.Resource),
+			Message: fmt.Sprintf("resource '%s' must start with / (or use '*' to match all)", p.Match.Resource),
 		})
 	}
 

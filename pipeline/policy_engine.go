@@ -35,10 +35,13 @@ func (e *DefaultPolicyEngine) Evaluate(ctx context.Context, record *Record) (*po
 		}
 	}
 
-	// Schema maps to resource in our model for pipelines
+	// Schema maps to resource in our model for pipelines.
+	// If no explicit schema is set (common for raw Kafka JSON messages), fall back
+	// to record.Source (e.g. "kafka.patient-records") so policies with resource: "*"
+	// or matching the source name will correctly apply to ingest records.
 	resource := record.Schema
 	if resource == "" {
-		resource = "unknown-schema"
+		resource = record.Source
 	}
 
 	// Determine cache key

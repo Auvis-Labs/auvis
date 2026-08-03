@@ -121,9 +121,19 @@ export default function Home() {
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            const diagnosis = data.governed_payload?.diagnosis || data.raw_payload?.diagnosis || data.resource || 'Governed Healthcare Record';
-            const maskedRef = data.governed_payload?.email || data.governed_payload?.patient_name || data.governed_payload?.phone || 'user_99***@health.org';
-            const pId = data.governed_payload?.patient_id || data.governed_payload?.id || `usr_${Math.random().toString(36).substring(2, 10)}`;
+            // FHIR fields can be objects (CodeableConcept, Reference, etc.) — always coerce to string
+            const asStr = (v: unknown): string =>
+              !v ? '' : typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v) : String(v);
+
+            const rp = data.raw_payload || {};
+            const gp = data.governed_payload || {};
+
+            const resourceType = asStr(gp.resourceType || rp.resourceType);
+            const diagnosis = resourceType
+              ? `${resourceType} Record`
+              : asStr(gp.diagnosis) || asStr(rp.diagnosis) || asStr(data.resource) || 'Governed Healthcare Record';
+            const maskedRef = asStr(gp.email) || asStr(gp.name) || asStr(gp.phone) || asStr(gp.patient_name) || 'Governed FHIR Record';
+            const pId = asStr(gp.id) || asStr(gp.patient_id) || `usr_${Math.random().toString(36).substring(2, 10)}`;
             const protectedCount = (data.fields_masked?.length || 0) + (data.fields_removed?.length || 0) || (data.rules_applied?.length || 1);
 
             // Compute real sliding-window throughput (events/sec)

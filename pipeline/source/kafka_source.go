@@ -141,6 +141,18 @@ func (k *KafkaSource) Connect() error {
 	}
 
 	// 4. Build reader(s)
+	// MinBytes=1 ensures messages are returned as soon as they arrive (no buffer wait).
+	// MaxWait=500ms caps the fetch wait time — critical for low-latency stream ingestion.
+	// MaxBytes must be >= MinBytes (kafka-go panics otherwise); 10MB covers large FHIR bundles.
+	minBytes := 1
+	maxBytes := 10 * 1024 * 1024 // 10MB
+	maxWait := 500 * time.Millisecond
+	if mwStr, ok := k.settings["max_wait_ms"]; ok {
+		if mw, err := time.ParseDuration(mwStr + "ms"); err == nil {
+			maxWait = mw
+		}
+	}
+
 	if k.groupID != "" {
 		// Consumer group mode: single reader handles multiple topics via GroupTopics
 		rcfg := kafka.ReaderConfig{
@@ -148,6 +160,9 @@ func (k *KafkaSource) Connect() error {
 			Dialer:      dialer,
 			StartOffset: startOffset,
 			GroupID:     k.groupID,
+			MinBytes:    minBytes,
+			MaxBytes:    maxBytes,
+			MaxWait:     maxWait,
 		}
 		if len(k.topics) == 1 {
 			rcfg.Topic = k.topics[0]
@@ -169,6 +184,9 @@ func (k *KafkaSource) Connect() error {
 				Topic:       topic,
 				Dialer:      dialer,
 				StartOffset: startOffset,
+				MinBytes:    minBytes,
+				MaxBytes:    maxBytes,
+				MaxWait:     maxWait,
 			}
 			if k.exactlyOnce {
 				rcfg.CommitInterval = 0

@@ -82,6 +82,9 @@ type Pipeline struct {
 	AuditEngine     AuditEngine
 	FailClosed      bool // Strategy: if true, failures block record; if false, record is allowed un-transformed or partially written.
 	DryRun          bool // Strategy: if true, evaluates policies and log actions but bypasses write to destination.
+	// Workers controls the number of concurrent record-processing goroutines.
+	// Defaults to 16 when zero. Set to 1 for strict ordering guarantees.
+	Workers         int
 	metrics         Metrics // Internal high-performance metrics tracker
 }
 
@@ -109,6 +112,14 @@ func (p *Pipeline) Run(ctx context.Context) error {
 
 	recordsChan := p.Source.ReadRecords(ctx)
 
+	// Semaphore limits concurrent processRecord goroutines.
+	// Default to 16 workers; caller can set p.Workers to tune.
+	workers := p.Workers
+	if workers <= 0 {
+		workers = 16
+	}
+	sem := make(chan struct{}, workers)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -119,8 +130,12 @@ func (p *Pipeline) Run(ctx context.Context) error {
 				slog.Info("Pipeline source exhausted, finished main loop", "pipeline", p.Name)
 				return nil
 			}
-
-			p.processRecord(ctx, record)
+			// Acquire semaphore slot (blocks if all workers are busy)
+			sem <- struct{}{}
+			go func(r Record) {
+				defer func() { <-sem }()
+				p.processRecord(ctx, r)
+			}(record)
 		}
 	}
 }

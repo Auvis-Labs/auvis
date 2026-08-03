@@ -14,4 +14,5 @@ type StreamEvent struct {
 	RulesApplied    []string       `json:"rules_applied"`    // e.g. ["mask: email", "remove: ssn", "pseudonymize: patient_id"]
 	FieldsMasked    []string       `json:"fields_masked"`
 	FieldsRemoved   []string       `json:"fields_removed"`
+	FieldsExposedPHI []string      `json:"fields_exposed_phi,omitempty"`
 }

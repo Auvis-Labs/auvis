@@ -49,6 +49,8 @@ type Config struct {
 	Salt               string
 	ShutdownTimeoutSec int
 	CircuitBreaker     CircuitBreakerConfig
+	Env                string // "development" | "production" (strictly from AUVIS_ENV, default: "development")
+	UngovernedPHIPosture string // "warn" | "auto_mask" | "block"
 	// Upstreams is the list of static upstream target services.
 	Upstreams []UpstreamConfig
 	// Destinations is the ordered list of configured data sinks.
@@ -74,6 +76,7 @@ type yamlConfig struct {
 	CircuitBreakerRoot     CircuitBreakerConfig `yaml:"circuit_breaker"`
 	DestinationRoot        DestinationConfig    `yaml:"destination"`
 	DestinationsRoot       []DestinationConfig  `yaml:"destinations"`
+	UngovernedPHIPostureRoot string             `yaml:"ungoverned_phi_posture"`
 
 	Gateway struct {
 		Port               int                  `yaml:"port"`
@@ -90,6 +93,7 @@ type yamlConfig struct {
 		CircuitBreaker     CircuitBreakerConfig `yaml:"circuit_breaker"`
 		Destination        DestinationConfig    `yaml:"destination"`
 		Destinations       []DestinationConfig  `yaml:"destinations"`
+		UngovernedPHIPosture string             `yaml:"ungoverned_phi_posture"`
 	} `yaml:"gateway"`
 }
 
@@ -117,11 +121,12 @@ func LoadConfig(path string) Config {
 		},
 	}
 
+	var y yamlConfig
+
 	// Try reading YAML
 	if path != "" {
 		b, err := os.ReadFile(path)
 		if err == nil {
-			var y yamlConfig
 			if err := yaml.Unmarshal(b, &y); err != nil {
 				log.Printf("failed to parse config %s: %v", path, err)
 			} else {
@@ -274,6 +279,38 @@ func LoadConfig(path string) Config {
 	if f := os.Getenv("AUVIS_AUDIT_FSYNC_INTERVAL"); f != "" {
 		cfg.AuditFsyncInterval = f
 	}
+
+	// Environment resolution (STRICTLY AUVIS_ENV)
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("AUVIS_ENV")))
+	if env == "" {
+		env = "development"
+	}
+	if env != "development" && env != "production" {
+		log.Fatalf("FATAL: Invalid AUVIS_ENV='%s'. Must be strictly 'development' or 'production'", env)
+	}
+	cfg.Env = env
+
+	// Ungoverned PHI Posture resolution
+	posture := y.UngovernedPHIPostureRoot
+	if posture == "" {
+		posture = y.Gateway.UngovernedPHIPosture
+	}
+	if p := os.Getenv("AUVIS_UNGOVERNED_PHI_POSTURE"); p != "" {
+		posture = p
+	}
+	posture = strings.ToLower(strings.TrimSpace(posture))
+
+	if posture == "" {
+		if cfg.Env == "production" {
+			posture = "auto_mask"
+		} else {
+			posture = "warn"
+		}
+	}
+	if posture != "warn" && posture != "auto_mask" && posture != "block" {
+		log.Fatalf("FATAL: Invalid ungoverned_phi_posture='%s'. Must be 'warn', 'auto_mask', or 'block'", posture)
+	}
+	cfg.UngovernedPHIPosture = posture
 
 	// Convert single upstream into default element in Upstreams list if Upstreams list is empty
 	if len(cfg.Upstreams) == 0 && cfg.UpstreamURL != "" {

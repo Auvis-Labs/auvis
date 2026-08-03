@@ -18,6 +18,7 @@ type Policy struct {
 	Response        Response `yaml:"response"` // optional — describes the API response shape
 	Rules           []Rule   `yaml:"rules"`
 	FilterCondition string   `yaml:"filter_condition"` // optional: row-level filtering condition
+	UngovernedPHIPosture string `yaml:"ungoverned_phi_posture"` // optional posture override: "warn" | "auto_mask" | "block"
 }
 
 // Match defines which requests this policy applies to.
@@ -155,4 +156,7 @@ type EffectivePolicy struct {
 	// Triggers lists the execution contexts this policy applies to (e.g. "read", "ingest").
 	// Empty means the policy applies to all triggers.
 	Triggers []string
+
+	// UngovernedPHIPosture is the optional policy-level posture override.
+	UngovernedPHIPosture string
 }

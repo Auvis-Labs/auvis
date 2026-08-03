@@ -138,3 +138,31 @@ You can view live audit logs at any time via:
 ```bash
 tail -f /Users/Cridiv/Documents/auvisDemo/audit.jsonl
 ```
+
+---
+
+## 6. Shadow PHI Exposure Discovery & Posture Testing
+
+Auvis automatically detects sensitive PII/PHI patterns (`SSN`, `Email`, `Phone`, `DOB`, `Credit Card`, `NPI`) that pass through unmanaged because they were omitted from active YAML policies.
+
+### Environment Posture Matrix (`AUVIS_ENV`)
+
+| `AUVIS_ENV` Mode | Default Posture | Security Posture | Response Behavior |
+| :--- | :--- | :--- | :--- |
+| **`development`** | **`warn`** | Onboarding / Discovery | Data passes unmasked, but triggers `X-Auvis-Exposed-PHI` HTTP header, audit log warning, and red pulsing UI warning badge (`⚠️ EXPOSED PHI`). |
+| **`production`** | **`auto_mask`** | **Strict Fail-Closed** | Unmanaged PII/PHI is automatically masked/redacted before reaching downstream systems (Postgres/pgvector/LLMs). |
+
+### Live Testing Steps
+
+1. Edit `policies/healthcare.yaml` in `auvisDemo` and omit `ssn`, `email`, and `phone` rules.
+2. Start the gateway:
+   ```bash
+   AUVIS_ENV=development auvis dev
+   ```
+3. Run traffic:
+   ```bash
+   AUVIS_GATEWAY_URL=http://localhost:8082/patients go run main.go
+   ```
+4. Open `http://localhost:3000`:
+   - Live feed cards render a red pulsing **`⚠️ EXPOSED PHI (3)`** badge.
+   - Clicking a card opens the draggable Audit Inspector displaying the **Shadow PHI Exposure Warning Banner** listing `ssn`, `email`, and `phone`.

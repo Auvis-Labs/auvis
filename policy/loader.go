@@ -236,6 +236,10 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 		if len(ep.Fields) > 0 {
 			merged.Fields = append(merged.Fields, ep.Fields...)
 		}
+
+		if ep.UngovernedPHIPosture != "" {
+			merged.UngovernedPHIPosture = ep.UngovernedPHIPosture
+		}
 	}
 
 	merged.Priority = matches[len(matches)-1].Priority
@@ -483,6 +487,7 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 			Roles:           p.Match.Roles,
 			Resource:        p.Match.Resource,
 			FilterCondition: p.FilterCondition,
+			UngovernedPHIPosture: p.UngovernedPHIPosture,
 			Triggers:        p.On,
 		}
 

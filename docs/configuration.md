@@ -48,6 +48,8 @@ gateway:
 | `audit_fsync_interval` | `string` | `"never"` | `AUVIS_AUDIT_FSYNC_INTERVAL` | Disk durability mode: `"never"` (max throughput), `"always"` (zero data loss), or flexible duration (`"100ms"`, `"5s"`, `"1m"`). |
 | `shutdown_timeout_seconds` | `integer` | `30` | — | Graceful shutdown timeout during SIGTERM pod eviction before force-exiting. |
 | `idp_url` | `string` | `""` | `AUVIS_IDP_URL` | Optional Identity Provider endpoint URL used to resolve bearer tokens or identity attributes. |
+| `ungoverned_phi_posture` | `string` | `"warn"` (dev) / `"auto_mask"` (prod) | `AUVIS_UNGOVERNED_PHI_POSTURE` | Shadow PHI posture for unmanaged fields: `"warn"`, `"auto_mask"`, or `"block"`. |
+| — | `string` | `"development"` | `AUVIS_ENV` | Global environment flag (`"development"` or `"production"`). Sets posture defaults and fail-closed strictness. |
 | `salt` | `string` | `"default-auvis-salt-value"` | `AUVIS_SALT` | Secret salt string used for SHA-256 field anonymization (`action: "anonymize"`). |
 | `upstream_timeout_seconds` | `integer` | `10` | — | Maximum duration before an upstream HTTP request is cancelled. |
 | `circuit_breaker` | `object` | `5/30s` | — | Global failure threshold (`max_failures`) and cooldown duration (`cooldown_seconds`). |

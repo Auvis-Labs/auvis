@@ -26,6 +26,8 @@ type Entry struct {
 	FieldsRemoved      []string  `json:"fields_removed"`
 	FieldsAllowed      []string  `json:"fields_allowed"`
 	FieldsDenied       []string  `json:"fields_denied"`
+	FieldsExposedPHI   []string  `json:"fields_exposed_phi,omitempty"`
+	Warnings           []string  `json:"warnings,omitempty"`
 	ResponseDenied     bool      `json:"response_denied"`
 	PiiTypesDetected   []string  `json:"pii_types_detected,omitempty"`
 	RowsFiltered       int       `json:"rows_filtered"`

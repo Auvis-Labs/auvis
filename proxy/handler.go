@@ -367,6 +367,89 @@ func Handler(
 			}
 		}
 
+		// STEP 7.2 — Shadow PHI Passive Scan & Posture Enforcement
+		var fieldsExposedPHI []string
+		if !isLLMIntercept && info.statusCode >= 200 && info.statusCode < 300 && len(buf.Bytes()) > 0 {
+			var respPayload map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &respPayload); err == nil {
+				governedMap := make(map[string]bool)
+				for _, f := range summary.FieldsMasked {
+					governedMap[f] = true
+				}
+				for _, f := range summary.FieldsRemoved {
+					governedMap[f] = true
+				}
+				for _, f := range summary.FieldsAllowed {
+					governedMap[f] = true
+				}
+				for _, f := range summary.FieldsDenied {
+					governedMap[f] = true
+				}
+
+				passiveInspector := pii.NewPassiveInspector()
+				exposed := passiveInspector.ScanUngovernedPayload(respPayload, governedMap)
+
+				if len(exposed) > 0 {
+					for _, ef := range exposed {
+						fieldsExposedPHI = append(fieldsExposedPHI, ef.Path)
+					}
+
+					// Resolve active posture: Policy Override -> Config Default -> Env Default
+					activePosture := ""
+					if ep != nil && ep.UngovernedPHIPosture != "" {
+						activePosture = ep.UngovernedPHIPosture
+					}
+					if activePosture == "" {
+						activePosture = cfg.UngovernedPHIPosture
+					}
+					if activePosture == "" {
+						if cfg.Env == "production" {
+							activePosture = "auto_mask"
+						} else {
+							activePosture = "warn"
+						}
+					}
+					activePosture = strings.ToLower(strings.TrimSpace(activePosture))
+
+					switch activePosture {
+					case "warn":
+						for _, ef := range exposed {
+							wMsg := fmt.Sprintf("EXPOSED_PHI_WARNING: Field '%s' contains sensitive pattern [%s] but is ungoverned by policy", ef.Path, ef.SampleVal)
+							summary.Warnings = append(summary.Warnings, wMsg)
+							slog.Warn("Ungoverned PHI exposure detected", "path", ef.Path, "type", ef.FieldType, "request_id", reqCtx.RequestID)
+						}
+						w.Header().Set("X-Auvis-Exposed-PHI", strings.Join(fieldsExposedPHI, ", "))
+
+					case "auto_mask":
+						for _, ef := range exposed {
+							wMsg := fmt.Sprintf("AUTO_MASK_PHI: Field '%s' containing [%s] auto-masked under posture=%s", ef.Path, ef.SampleVal, activePosture)
+							summary.Warnings = append(summary.Warnings, wMsg)
+							summary.FieldsMasked = append(summary.FieldsMasked, ef.Path)
+						}
+						autoMaskPayload(respPayload, exposed)
+						if newBytes, err := json.Marshal(respPayload); err == nil {
+							buf.Reset()
+							buf.Write(newBytes)
+						}
+
+					case "block":
+						summary.Denied = true
+						summary.ResponseDenied = true
+						w.Header().Set("Content-Type", "application/json")
+						errResp := map[string]any{
+							"error":          "UNGOVERNED_PHI_EXPOSED",
+							"message":        "Request blocked due to ungoverned PHI/PII detected in response",
+							"exposed_fields": fieldsExposedPHI,
+						}
+						if newBytes, err := json.Marshal(errResp); err == nil {
+							buf.Reset()
+							buf.Write(newBytes)
+						}
+					}
+				}
+			}
+		}
+
 		// STEP 7.5 — Synchronous destination fan-out (fail-closed)
 		// The governed response body is written to all configured destinations before
 		// returning to the client. If any write fails, the client gets a 500 and the
@@ -516,6 +599,8 @@ func Handler(
 			FieldsRemoved:       summary.FieldsRemoved,
 			FieldsAllowed:       summary.FieldsAllowed,
 			FieldsDenied:        summary.FieldsDenied,
+			FieldsExposedPHI:    fieldsExposedPHI,
+			Warnings:            summary.Warnings,
 			ResponseDenied:      summary.ResponseDenied,
 			PiiTypesDetected:    summary.PiiTypesDetected,
 			RowsFiltered:        summary.RowsFiltered,
@@ -545,16 +630,17 @@ func Handler(
 		}
 
 		stream.GlobalBroadcaster.Publish(stream.StreamEvent{
-			Timestamp:       time.Now().UTC(),
-			RequestID:       reqCtx.RequestID,
-			Source:          rawUpstream,
-			Resource:        reqCtx.Resource,
-			UserRole:        reqCtx.UserRole,
-			RawPayload:      rawPayload,
-			GovernedPayload: governedPayload,
-			RulesApplied:    summary.PoliciesApplied,
-			FieldsMasked:    summary.FieldsMasked,
-			FieldsRemoved:   summary.FieldsRemoved,
+			Timestamp:        time.Now().UTC(),
+			RequestID:        reqCtx.RequestID,
+			Source:           rawUpstream,
+			Resource:         reqCtx.Resource,
+			UserRole:         reqCtx.UserRole,
+			RawPayload:       rawPayload,
+			GovernedPayload:  governedPayload,
+			RulesApplied:     summary.PoliciesApplied,
+			FieldsMasked:     summary.FieldsMasked,
+			FieldsRemoved:    summary.FieldsRemoved,
+			FieldsExposedPHI: fieldsExposedPHI,
 		})
 
 		slog.Info("Request handled successfully",
@@ -627,4 +713,31 @@ func mapRecordOutcomes(in []transform.RecordOutcome) []audit.RecordOutcome {
 		}
 	}
 	return out
+}
+
+func autoMaskPayload(payload map[string]any, exposed []pii.ExposedField) {
+	for _, ef := range exposed {
+		parts := strings.Split(ef.Path, ".")
+		maskNestedMap(payload, parts)
+	}
+}
+
+func maskNestedMap(m map[string]any, parts []string) {
+	if len(parts) == 0 || m == nil {
+		return
+	}
+	key := parts[0]
+	if len(parts) == 1 {
+		if val, ok := m[key].(string); ok {
+			if len(val) <= 4 {
+				m[key] = "****"
+			} else {
+				m[key] = val[:2] + strings.Repeat("*", len(val)-4) + val[len(val)-2:]
+			}
+		}
+		return
+	}
+	if nextMap, ok := m[key].(map[string]any); ok {
+		maskNestedMap(nextMap, parts[1:])
+	}
 }

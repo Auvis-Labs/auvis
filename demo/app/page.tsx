@@ -16,6 +16,7 @@ interface GovernedRecord {
   rulesApplied?: string[];
   fieldsMasked?: string[];
   fieldsRemoved?: string[];
+  fieldsExposedPHI?: string[];
   resource?: string;
   userRole?: string;
 }
@@ -148,6 +149,7 @@ export default function Home() {
               rulesApplied: data.rules_applied || data.policies_applied || ['mask: patient_name', 'mask: email', 'remove: ssn'],
               fieldsMasked: data.fields_masked || ['patient_name', 'email', 'phone', 'date_of_birth', 'notes'],
               fieldsRemoved: data.fields_removed || ['ssn'],
+              fieldsExposedPHI: data.fields_exposed_phi || [],
               resource: data.resource || '/patients',
               userRole: data.user_role || 'doctor'
             };
@@ -454,9 +456,15 @@ export default function Home() {
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
                       {item.diagnosis}
                     </span>
-                    <span className="font-mono text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      Audit
-                    </span>
+                    {item.fieldsExposedPHI && item.fieldsExposedPHI.length > 0 ? (
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                        ⚠️ EXPOSED PHI ({item.fieldsExposedPHI.length})
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Audit
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-[11px]">
@@ -522,6 +530,29 @@ export default function Home() {
 
             {/* Drawer Content */}
             <div className="p-5 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+
+              {/* Shadow PHI Warning Banner */}
+              {activeAuditRecord.fieldsExposedPHI && activeAuditRecord.fieldsExposedPHI.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/40 flex flex-col gap-2 font-mono text-xs shadow-lg shadow-rose-500/5">
+                  <div className="flex items-center gap-2 text-rose-400 font-bold uppercase tracking-wider text-[11px]">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                    </span>
+                    ⚠️ Shadow PHI Exposure Detected
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Unmanaged PHI/PII patterns passed unmasked because they were omitted from active policy rules:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-0.5">
+                    {activeAuditRecord.fieldsExposedPHI.map((fieldPath, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-semibold">
+                        {fieldPath}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Rules & Compliance Badges */}
               <div className="flex flex-wrap items-center gap-2 text-xs font-mono">

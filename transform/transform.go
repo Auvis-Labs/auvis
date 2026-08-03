@@ -32,6 +32,7 @@ type Summary struct {
 	Priority           int
 	ComplianceTags     []string
 	ConditionEvaluated []string
+	Warnings           []string
 	Denied             bool   // internal — drives HTTP 403 in handler
 	DenyReason         string
 	// RecordOutcomes carries per-record field dispositions for multi-record responses.

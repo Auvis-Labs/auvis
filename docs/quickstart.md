@@ -35,12 +35,29 @@ go run main.go
 # Starts mock upstream listening on http://localhost:8000
 ```
 
-### Step 3: Define a Policy (`policies/analyst_mask.yaml`)
+### Step 3: Scaffold Your Project
+```bash
+auvis init
+# Creates: auvis.yaml, .env, policies/example.yaml
+```
+
+Open the generated `.env` and set your upstream URL:
+```bash
+AUVIS_UPSTREAM_URL=http://localhost:8000
+AUVIS_ENV=development
+AUVIS_SALT=change-me-use-openssl-rand-hex-32
+```
+
+Then load it:
+```bash
+export $(grep -v '^#' .env | xargs)
+```
+
+### Step 4: Define a Policy (`policies/analyst_mask.yaml`)
 Create a YAML policy in `policies/analyst_mask.yaml`:
 ```yaml
 policies:
   - name: analyst-mask-policy
-    priority: 100
     match:
       roles: [analyst]
       resource: /users
@@ -54,13 +71,20 @@ policies:
     compliance_tags: ["GDPR"]
 ```
 
-### Step 4: Start Auvis Gateway
+### Step 5: Start Auvis Gateway
 ```bash
-# Start Auvis listening on port 9090 pointing to mock upstream on port 8000
-AUVIS_PORT=9090 ./auvis dev
+auvis dev
 ```
 
-### Step 5: Test Governed Output with `curl`
+Expected startup output:
+```
+time=... level=INFO msg="AUVIS_ENV detected" AUVIS_ENV=development
+time=... level=INFO msg="Gateway environment" AUVIS_ENV=development ungoverned_phi_posture=warn port=8080 upstream=http://localhost:8000
+```
+
+> If `AUVIS_ENV` is not exported, you will see a `level=WARN` instead. Set it in `.env` and re-export.
+
+### Step 6: Test Governed Output with `curl`
 
 #### Send request with `analyst` role header:
 ```bash
@@ -147,9 +171,13 @@ Every request passing through Auvis generates a structured audit log entry in `a
 
 | Command | Description |
 |---|---|
-| `./auvis dev` | Start gateway in development hot-reload mode |
-| `./auvis validate` | Validate policy YAML files for syntax and schema errors |
-| `./auvis version` | Print binary version, Go version, and git commit |
+| `auvis init` | Scaffold `auvis.yaml`, `.env`, and `policies/` in the current directory |
+| `auvis dev` | Start the gateway with live policy hot-reload |
+| `auvis validate` | Lint policy YAML files for syntax, schema, and overlap errors |
+| `auvis logs` | Tail and filter the audit log (`--follow`, `--role`, `--user`, `--resource`) |
+| `auvis status` | Query the running gateway for uptime, request count, and active policies |
+| `auvis policies list` | Print all compiled effective policies as a formatted table |
+| `auvis version` | Print binary version, Go version, and git commit |
 
 ---
 

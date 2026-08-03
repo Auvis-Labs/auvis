@@ -90,36 +90,41 @@ Starts the gateway in development mode with live policy reloading. This is the p
 
 1. **Logging**: Initialises `slog` with `slog.NewTextHandler(os.Stderr, {Level: slog.LevelInfo})`.
 
-2. **Config**: Calls `config.LoadConfig(cfgFile)`. Fails if `cfg.UpstreamURL == ""`.
+2. **Config**: Calls `config.LoadConfig(cfgFile)`. Fails fatally if `AUVIS_ENV` is set to an invalid value.
 
-3. **Automatic Policy Validation**: Calls `performPolicyValidation(cfg.PoliciesDir)`. Validates YAML syntax, rule structures, condition expressions, and checks for duplicate policy names. Aborts startup (`FATAL`) if policy validation fails.
+3. **Environment Check**: Immediately after config load, checks `os.Getenv("AUVIS_ENV")` using the now-initialized `slog`:
+   - If **unset** → `slog.Warn("AUVIS_ENV is not set — defaulting to development mode (posture=warn, fail-open)...")`
+   - If **set** → `slog.Info("AUVIS_ENV detected", "AUVIS_ENV", cfg.Env)`
+   - Then logs `slog.Info("Gateway environment", ...)` with `AUVIS_ENV`, `ungoverned_phi_posture`, `port`, `upstream`.
 
-4. **Audit Logger**: Calls `audit.NewRotatingLogger(cfg.AuditFile, 512, cfg.AuditMaxSizeMB, cfg.AuditMaxAgeDays)`.
+4. **Upstream Check**: Returns an error if `cfg.UpstreamURL == ""` — `AUVIS_UPSTREAM_URL` is required.
 
-5. **Policy Store**: Calls `policy.NewStore()`. Calls `store.LoadDir(cfg.PoliciesDir)`. Calls `store.WatchDir(cfg.PoliciesDir)` to enable hot-reload.
+5. **Automatic Policy Validation**: Calls `performPolicyValidation(cfg.PoliciesDir)`. Validates YAML syntax, rule structures, condition expressions, and checks for duplicate policy names. Aborts startup (`FATAL`) if policy validation fails.
 
-6. **Destination Setup**: Calls `buildDestinations(cfg.Destinations, skipDestinationCheck)`:
+6. **Audit Logger**: Calls `audit.NewRotatingLogger(cfg.AuditFile, 512, cfg.AuditMaxSizeMB, cfg.AuditMaxAgeDays)`.
+
+7. **Policy Store**: Calls `policy.NewStore()`. Calls `store.LoadDir(cfg.PoliciesDir)`. Calls `store.WatchDir(cfg.PoliciesDir)` to enable hot-reload.
+
+8. **Destination Setup**: Calls `buildDestinations(cfg.Destinations, skipDestinationCheck)`:
    - Runs `d.Connect()` reachability and auth check for every destination.
    - If `--skip-destination-check` is set, logs `slog.Warn` on connection failure and proceeds anyway.
    - If a connection fails without `--skip-destination-check`, cleans up opened pools, logs `FATAL`, and aborts gateway boot.
 
-7. **Transform function**: `transform.NewStreamApplyFn(store)`.
+9. **Transform function**: `transform.NewStreamApplyFn(store)`.
 
-8. **HTTP ServeMux**:
-   - `audit.RegisterHandlers(mux, ...)` → mounts `/auvis/audit`, `/auvis/status`, `/metrics`, `/auvis/metrics`.
-   - `GET /healthz` & `GET /health` → **Liveness Probe**: returns `200 OK` when process is running and serving traffic. Excluded from proxy policy evaluation and audit logging.
-   - `GET /readyz` & `GET /ready` → **Readiness Probe**: returns `200 OK` (`"ready"` or `"degraded"`) when policies are loaded and circuit breakers are operational; returns `503 Service Unavailable` if 0 policies are loaded or all destination breakers are `Open`. Excluded from proxy policy evaluation and audit logging.
-   - `/` → `proxy.Handler(cfg, store, transformFn, auditLog, &requestCount, dest)`.
+10. **HTTP ServeMux**:
+    - `audit.RegisterHandlers(mux, ...)` → mounts `/auvis/audit`, `/auvis/status`, `/metrics`, `/auvis/metrics`.
+    - `GET /healthz` & `GET /health` → **Liveness Probe**: returns `200 OK` when process is running and serving traffic.
+    - `GET /readyz` & `GET /ready` → **Readiness Probe**: returns `200 OK` (`"ready"` or `"degraded"`) when policies are loaded; returns `503` if 0 policies or all destination breakers are `Open`.
+    - `/` → `proxy.Handler(cfg, store, transformFn, auditLog, &requestCount, dest)`.
 
-9. **Startup Summary & HTTP Server**:
-   - Prints clean terminal startup summary via `printStartupSummary()` (listening port, upstream URL, policies loaded, connected destinations, audit file path).
-   - Starts HTTP server on `Addr: ":"+cfg.Port`.
+11. **Startup Summary & HTTP Server**: Prints terminal startup summary (port, upstream, policies loaded, connected destinations, audit file). Starts HTTP server.
 
-10. **Graceful Shutdown**:
-   - Listens for `os.Interrupt` or `syscall.SIGTERM`.
-   - On signal: calls `server.Shutdown(ctx)` with 10-second timeout.
-   - Calls `auditLog.Close()` to flush pending audit entries.
-   - Logs `slog.Info("Gateway gracefully terminated", "total_requests", N)`.
+12. **Graceful Shutdown**:
+    - Listens for `os.Interrupt` or `syscall.SIGTERM`.
+    - Calls `server.Shutdown(ctx)` with 10-second timeout.
+    - Calls `auditLog.Close()` to flush pending audit entries.
+    - Logs `slog.Info("Gateway gracefully terminated", "total_requests", N)`.
 
 ---
 
@@ -152,11 +157,35 @@ Switch on `dc.Type`:
 
 ### `auvis init`
 
-Scaffolds a new Auvis project in the current directory:
-- Creates `auvis.yaml` with example config.
-- Creates `policies/` directory.
-- Creates `policies/example.yaml` with a commented policy.
-- Prints onboarding instructions.
+Scaffolds a new Auvis project in the current directory. All files are **skipped** if they already exist (safe to re-run).
+
+**Files created:**
+
+| File | Description |
+|---|---|
+| `auvis.yaml` | Gateway config scaffold with commented fields and sensible defaults |
+| `.env` | Environment variable scaffold with all required and optional variables pre-populated |
+| `policies/` | Policies directory |
+| `policies/example.yaml` | Commented example policy demonstrating all actions and posture overrides |
+
+**Generated `.env` contents:**
+
+```bash
+# Required
+AUVIS_UPSTREAM_URL=http://localhost:8000
+
+# Environment & Security Posture
+AUVIS_ENV=development
+AUVIS_SALT=change-me-use-openssl-rand-hex-32
+```
+
+**Generated `policies/example.yaml` includes:**
+- Example 1: Admin wildcard `allow`
+- Example 2: Analyst masked access (`mask`, `remove`)
+- Example 3: LLM PII interception (`llm_intercept`) — commented out
+- Example 4: `ungoverned_phi_posture` per-policy override — commented out, with full explanation
+
+**Prints onboarding summary** on completion showing created vs skipped files and next steps.
 
 ---
 

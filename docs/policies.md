@@ -15,6 +15,7 @@ policies:
     priority: 100                           # Optional: higher value wins in merge order
     enabled: true                           # Optional: set false to disable without deleting
     on: ["read"]                           # Optional: "read", "ingest", or both. Empty = all
+    ungoverned_phi_posture: warn            # Optional: "warn" | "auto_mask" | "block". Overrides gateway default for this policy.
 
     match:
       roles: ["analyst", "support"]         # Required: role list. Use ["*"] for all roles
@@ -70,6 +71,7 @@ policies:
 | `priority` | `int` | — | Policy priority for merge ordering. Higher number = higher precedence. Default: `0`. |
 | `enabled` | `bool` | — | Set `false` to disable without deleting. Default: `true` (enabled). |
 | `on` | `[]string` | — | Trigger contexts: `"read"` (HTTP proxy), `"ingest"` (pipeline). Empty = both. |
+| `ungoverned_phi_posture` | `string` | — | Shadow PHI posture for fields **not covered by any rule** in this policy. Options: `"warn"` (log only), `"auto_mask"` (redact automatically), `"block"` (reject response with HTTP 403). Overrides the gateway-level default set by `AUVIS_ENV`. |
 | `match` | `Match` | ✅ | Matching criteria — all specified fields must match. |
 | `response` | `Response` | — | Describes response envelope shape. |
 | `rules` | `[]Rule` | ✅ | Field-level transformation rules. |

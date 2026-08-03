@@ -39,18 +39,16 @@ gateway:
 | Field | Type | Default | Env Var Override | Description |
 |---|---|---|---|---|
 | `port` | `integer` / `string` | `8080` | `AUVIS_PORT` | HTTP port Auvis listens on for inbound traffic. |
-| `upstream` | `string` | `""` | `AUVIS_UPSTREAM` | Default single upstream server URL (e.g., `http://backend:8000`). |
-| `upstreams` | `[]object` | `[]` | — | Static Multi-Upstream Microservice list (`name`, `prefix`, `target`, `policies_dir`). |
-| `policies_dir` | `string` | `"./policies"` | — | Local directory containing policy YAML files. Auvis watches this folder for instant hot-reload. |
+| `upstream` | `string` | `""` | `AUVIS_UPSTREAM` / `AUVIS_UPSTREAM_URL` | Default single upstream server URL (e.g., `http://backend:8000`). |
+| `upstreams` | `[]object` | `[]` | — | Static multi-upstream microservice list (`name`, `prefix`, `target`, `policies_dir`). |
+| `policies_dir` | `string` | `"./policies"` | — | Local directory containing policy YAML files. Auvis watches this folder for zero-downtime hot-reload. |
 | `audit_file` | `string` | `"./audit.jsonl"` | `AUVIS_AUDIT_FILE` | Append-only newline-delimited JSONL log file path. |
-| `audit_max_size_mb` | `integer` | `10` | — | Maximum log file size in megabytes before trigger-based log file rotation. |
+| `audit_max_size_mb` | `integer` | `10` | — | Maximum log file size in megabytes before rotation triggers. |
 | `audit_max_age_days` | `integer` | `30` | — | Retention period in days for rotated log files before automatic cleanup. |
-| `audit_fsync_interval` | `string` | `"never"` | `AUVIS_AUDIT_FSYNC_INTERVAL` | Disk durability mode: `"never"` (max throughput), `"always"` (zero data loss), or flexible duration (`"100ms"`, `"5s"`, `"1m"`). |
-| `shutdown_timeout_seconds` | `integer` | `30` | — | Graceful shutdown timeout during SIGTERM pod eviction before force-exiting. |
-| `idp_url` | `string` | `""` | `AUVIS_IDP_URL` | Optional Identity Provider endpoint URL used to resolve bearer tokens or identity attributes. |
-| `ungoverned_phi_posture` | `string` | `"warn"` (dev) / `"auto_mask"` (prod) | `AUVIS_UNGOVERNED_PHI_POSTURE` | Shadow PHI posture for unmanaged fields: `"warn"`, `"auto_mask"`, or `"block"`. |
-| — | `string` | `"development"` | `AUVIS_ENV` | Global environment flag (`"development"` or `"production"`). Sets posture defaults and fail-closed strictness. |
-| `salt` | `string` | `"default-auvis-salt-value"` | `AUVIS_SALT` | Secret salt string used for SHA-256 field anonymization (`action: "anonymize"`). |
+| `audit_fsync_interval` | `string` | `"never"` | `AUVIS_AUDIT_FSYNC_INTERVAL` | Disk durability mode: `"never"` (max throughput), `"always"` (zero data loss), or duration (`"100ms"`, `"5s"`, `"1m"`). |
+| `shutdown_timeout_seconds` | `integer` | `30` | — | Graceful shutdown timeout during SIGTERM before force-exit. |
+| `idp_url` | `string` | `""` | `AUVIS_IDP_URL` | Optional Identity Provider endpoint to resolve bearer tokens or identity attributes. |
+| `salt` | `string` | `"default-auvis-salt-value"` | `AUVIS_SALT` | Secret salt string used for SHA-256 field anonymization (`action: anonymize`). Required in production. |
 | `upstream_timeout_seconds` | `integer` | `10` | — | Maximum duration before an upstream HTTP request is cancelled. |
 | `circuit_breaker` | `object` | `5/30s` | — | Global failure threshold (`max_failures`) and cooldown duration (`cooldown_seconds`). |
 
@@ -133,10 +131,14 @@ gateway:
 
 ## 🔐 Environment Variables Quick Reference
 
-| Environment Variable | Description | Example |
-|---|---|---|
-| `AUVIS_PORT` | Gateway port override | `9090` |
-| `AUVIS_UPSTREAM_URL` | Upstream URL override (fallback `AUVIS_UPSTREAM`) | `http://api.internal:8000` |
-| `AUVIS_AUDIT_FILE` | Audit log path override | `/var/log/auvis/audit.jsonl` |
-| `AUVIS_SALT` | Hashing salt override | `prod-secret-salt-phrase` |
-| `AUVIS_IDP_URL` | IdP resolve endpoint override | `https://idp.example.com/userinfo` |
+| Environment Variable | Required | Description | Example |
+|---|---|---|---|
+| `AUVIS_UPSTREAM_URL` | ✅ | Upstream target URL (also accepted as `AUVIS_UPSTREAM`) | `http://api.internal:8000` |
+| `AUVIS_ENV` | ✅ | Execution environment: `development` or `production`. Drives posture defaults and fail-closed enforcement. Warned at startup if unset. | `production` |
+| `AUVIS_SALT` | ✅ in prod | Secret salt for SHA-256 field anonymization (`action: anonymize`). Required in production. Generate with `openssl rand -hex 32`. | `a7f3c9...` |
+| `AUVIS_PORT` | — | Gateway port override | `9090` |
+| `AUVIS_AUDIT_FILE` | — | Audit log path override | `/var/log/auvis/audit.jsonl` |
+| `AUVIS_IDP_URL` | — | IdP resolve endpoint override | `https://idp.example.com/userinfo` |
+| `AUVIS_AUDIT_FSYNC_INTERVAL` | — | Fsync durability interval override | `100ms` |
+
+> **Note:** `ungoverned_phi_posture` is **not an environment variable**. It is a per-policy field set in your policy YAML files. The gateway-level posture default is derived automatically from `AUVIS_ENV`.

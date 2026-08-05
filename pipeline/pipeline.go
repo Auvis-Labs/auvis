@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -119,21 +120,28 @@ func (p *Pipeline) Run(ctx context.Context) error {
 		workers = 16
 	}
 	sem := make(chan struct{}, workers)
+	var workerWg sync.WaitGroup
 
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("Pipeline context cancelled, stopping main loop", "pipeline", p.Name)
+			workerWg.Wait()
 			return ctx.Err()
 		case record, ok := <-recordsChan:
 			if !ok {
 				slog.Info("Pipeline source exhausted, finished main loop", "pipeline", p.Name)
+				workerWg.Wait()
 				return nil
 			}
 			// Acquire semaphore slot (blocks if all workers are busy)
 			sem <- struct{}{}
+			workerWg.Add(1)
 			go func(r Record) {
-				defer func() { <-sem }()
+				defer func() {
+					<-sem
+					workerWg.Done()
+				}()
 				p.processRecord(ctx, r)
 			}(record)
 		}
@@ -185,8 +193,12 @@ func (p *Pipeline) processRecord(ctx context.Context, record Record) {
 	var transformErr error
 	var writeErr error
 
+	var policyHash string
 	// 1. Evaluate policies
 	if p.PolicyEngine != nil {
+		if pe, ok := p.PolicyEngine.(interface{ Hash() string }); ok {
+			policyHash = pe.Hash()
+		}
 		ep, evalErr = p.PolicyEngine.Evaluate(ctx, &record)
 	}
 
@@ -324,6 +336,7 @@ func (p *Pipeline) processRecord(ctx context.Context, record Record) {
 		Resource:           record.Source,
 		Method:             "INGEST",
 		PoliciesApplied:    policiesApplied,
+		PolicyHash:         policyHash,
 		Priority:           priority,
 		ComplianceTags:     complianceTags,
 		ConditionEvaluated: conds,

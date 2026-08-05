@@ -141,6 +141,7 @@ func Handler(
 				UserRole:       rc.UserRole,
 				Resource:       rc.Resource,
 				Method:         rc.Method,
+				PolicyHash:     store.Hash(),
 				UpstreamStatus: http.StatusBadGateway,
 			})
 			http.Error(w, "upstream unavailable", http.StatusBadGateway)
@@ -596,6 +597,7 @@ func Handler(
 			Resource:            reqCtx.Resource,
 			Method:              reqCtx.Method,
 			PoliciesApplied:     summary.PoliciesApplied,
+			PolicyHash:          store.Hash(),
 			Priority:            summary.Priority,
 			ComplianceTags:      summary.ComplianceTags,
 			ConditionEvaluated:  summary.ConditionEvaluated,

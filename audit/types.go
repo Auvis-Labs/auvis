@@ -19,6 +19,7 @@ type Entry struct {
 	Resource           string    `json:"resource"`
 	Method             string    `json:"method"`
 	PoliciesApplied    []string  `json:"policies_applied"`
+	PolicyHash         string    `json:"policy_hash,omitempty"`
 	Priority           int       `json:"priority"`
 	ComplianceTags     []string  `json:"compliance_tags"`
 	ConditionEvaluated []string  `json:"condition_evaluated,omitempty"`

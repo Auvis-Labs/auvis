@@ -24,6 +24,14 @@ func NewDefaultPolicyEngine(store *policy.Store) *DefaultPolicyEngine {
 	}
 }
 
+// Hash returns the active policy store SHA-256 hash.
+func (e *DefaultPolicyEngine) Hash() string {
+	if e.store == nil {
+		return ""
+	}
+	return e.store.Hash()
+}
+
 // Evaluate matches policies based on record attributes and returns the consolidated EffectivePolicy.
 // It leverages a thread-safe caching layer to bypass store.Lookup on repeated identical context evaluations.
 func (e *DefaultPolicyEngine) Evaluate(ctx context.Context, record *Record) (*policy.EffectivePolicy, error) {

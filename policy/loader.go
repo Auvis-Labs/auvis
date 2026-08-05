@@ -1,27 +1,41 @@
 package policy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
-	"regexp"
 )
 
 // Store holds the compiled effective policies and is safe for concurrent reads.
 type Store struct {
 	mu       sync.RWMutex
 	policies map[string]*EffectivePolicy // key: "role::resource"
+	hash     string                      // sha256 hex digest of active compiled policy set
 }
 
 func NewStore() *Store {
-	return &Store{policies: make(map[string]*EffectivePolicy)}
+	return &Store{
+		policies: make(map[string]*EffectivePolicy),
+		hash:     computePolicyHash(nil),
+	}
+}
+
+// Hash returns the 64-character SHA-256 hex digest of the currently active compiled policies.
+func (s *Store) Hash() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.hash
 }
 
 // NewStoreFromPolicies compiles a slice of raw policies directly into a new Store.
@@ -31,8 +45,9 @@ func NewStoreFromPolicies(policies []Policy) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compiling policies: %w", err)
 	}
+	hash := computePolicyHash(policies)
 	s := NewStore()
-	s.swap(compiled)
+	s.swap(compiled, hash)
 	return s, nil
 }
 
@@ -172,7 +187,7 @@ func (s *Store) Lookup(role, resource, service, source, destination, trigger str
 
 	for _, ep := range matches {
 		merged.SourcePolicies = append(merged.SourcePolicies, ep.SourcePolicies...)
-		
+
 		// Carry Response block — higher priority wins
 		if !isResponseEmpty(ep.Response) || isResponseEmpty(merged.Response) {
 			merged.Response = ep.Response
@@ -293,10 +308,32 @@ func matchDestination(pattern, destination string) bool {
 	return matchService(pattern, destination)
 }
 
-func (s *Store) swap(next map[string]*EffectivePolicy) {
+func (s *Store) swap(next map[string]*EffectivePolicy, hash string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.policies = next
+	s.hash = hash
+}
+
+// computePolicyHash calculates a deterministic SHA-256 hex string over sorted policy definitions.
+func computePolicyHash(policies []Policy) string {
+	if len(policies) == 0 {
+		h := sha256.Sum256([]byte(""))
+		return hex.EncodeToString(h[:])
+	}
+	sorted := make([]Policy, len(policies))
+	copy(sorted, policies)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Name < sorted[j].Name
+	})
+
+	data, err := json.Marshal(sorted)
+	if err != nil {
+		h := sha256.Sum256([]byte(""))
+		return hex.EncodeToString(h[:])
+	}
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }
 
 // GetPolicies returns a thread-safe copy of all compiled effective policies.
@@ -344,7 +381,9 @@ func (s *Store) LoadDir(dir string) (int, error) {
 		return 0, fmt.Errorf("compiling policies: %w", err)
 	}
 
-	s.swap(compiled)
+	hash := computePolicyHash(allPolicies)
+	s.swap(compiled, hash)
+	slog.Info("Policy store compiled", "active_policies", len(compiled), "policy_hash", hash)
 	return len(compiled), nil
 }
 
@@ -468,9 +507,9 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 	result := make(map[string]*EffectivePolicy)
 	for _, p := range activePolicies {
 		ep := &EffectivePolicy{
-			SourcePolicies:  []string{p.Name},
-			ComplianceTags:  p.ComplianceTags,
-			Response:        p.Response,
+			SourcePolicies:       []string{p.Name},
+			ComplianceTags:       p.ComplianceTags,
+			Response:             p.Response,
 			Rules:                make(map[string]RuleAction),
 			RuleConditions:       make(map[string]string),
 			RuleLengths:          make(map[string]int),
@@ -479,16 +518,16 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 			TaggedRuleConditions: make(map[string]string),
 			TaggedRuleLengths:    make(map[string]int),
 			TaggedRuleSeeds:      make(map[string]string),
-			Services:        p.Match.Services,
-			Fields:          p.Match.Fields,
-			Sources:         p.Match.Sources,
-			Destinations:    p.Match.Destinations,
-			Priority:        p.Priority,
-			Roles:           p.Match.Roles,
-			Resource:        p.Match.Resource,
-			FilterCondition: p.FilterCondition,
+			Services:             p.Match.Services,
+			Fields:               p.Match.Fields,
+			Sources:              p.Match.Sources,
+			Destinations:         p.Match.Destinations,
+			Priority:             p.Priority,
+			Roles:                p.Match.Roles,
+			Resource:             p.Match.Resource,
+			FilterCondition:      p.FilterCondition,
 			UngovernedPHIPosture: p.UngovernedPHIPosture,
-			Triggers:        p.On,
+			Triggers:             p.On,
 		}
 
 		for _, rule := range p.Rules {
@@ -535,7 +574,7 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 	return result, nil
 }
 
-func makeKey(role, resource string) string        { return role + "::" + resource }
+func makeKey(role, resource string) string { return role + "::" + resource }
 func SplitKey(key string) (string, string, bool) {
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {

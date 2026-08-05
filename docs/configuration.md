@@ -62,10 +62,15 @@ In addition to proxying HTTP traffic, Auvis can continuously consume and govern 
 sources:
   - type: kafka
     settings:
-      brokers: "localhost:9092"
+      brokers: "13.63.117.156:9092"
       topic: "patient-records"
-      group_id: "auvis-consumer-group"
-      auto_offset_reset: "earliest"  # "earliest" | "latest" (default: "earliest")
+      group_id: "auvis-hybrid-consumer-group"
+      auto_offset_reset: "latest"      # "earliest" | "latest" (default: "earliest")
+      max_wait_ms: "500"               # Max batch wait before return (default: "500")
+      session_timeout_ms: "60000"      # WAN-safe consumer session timeout (default: "60000")
+      heartbeat_interval_ms: "5000"    # WAN-safe group heartbeat interval (default: "5000")
+      rebalance_timeout_ms: "30000"    # WAN group rebalance timeout (default: "30000")
+      commit_interval: "1s"            # At-least-once offset commit frequency (default: "1s")
     auth:
       type: sasl_ssl
       username: "my-kafka-user"
@@ -74,6 +79,25 @@ sources:
 ```
 
 Each configured source launches an independent, concurrent pipeline worker inside `auvis dev`. Ingested records pass through policy matching (matched against policies with `on: ["ingest"]`), undergo field transformations, and broadcast audit events over `/auvis/stream`.
+
+### Kafka Source Settings Reference
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `brokers` | `string` | — *(Required)* | Comma-separated Kafka bootstrap broker addresses (e.g. `13.63.117.156:9092`). |
+| `topic` / `topics` | `string` | — *(Required)* | Target Kafka topic name, or comma-separated list of topics. |
+| `group_id` | `string` | `""` | Consumer group identifier. When set, uses Kafka consumer group protocol. |
+| `auto_offset_reset` | `string` | `"earliest"` | Fallback offset reset strategy (`"earliest"` or `"latest"`). **Note:** Only applies when a consumer group has no existing committed offsets. |
+| `max_wait_ms` | `string` | `"500"` | Maximum fetch wait duration in milliseconds before returning available records. Set to `500` for WAN streams to prevent polling loops. |
+| `session_timeout_ms` | `string` | `"60000"` | Consumer session timeout in milliseconds. Increase for high-latency WAN links to prevent group eviction. |
+| `heartbeat_interval_ms` | `string` | `"5000"` | Heartbeat interval in milliseconds sent to the group coordinator. |
+| `rebalance_timeout_ms` | `string` | `"30000"` | Maximum duration allowed for group rebalancing during partition assignment. |
+| `commit_interval` | `string` | `"1s"` | Frequency of offset commits for at-least-once streaming mode. |
+
+> 💡 **Consumer Group Offset Management Best Practice:**  
+> Kafka ignores `auto_offset_reset` if a `group_id` already has committed offsets on the broker. When changing stream start positions or skipping legacy topic backlogs, either use a **fresh `group_id`** or explicitly reset group offsets using `kafka-consumer-groups --reset-offsets --to-latest --execute`.
+
+For detailed architecture patterns and WAN deployment recommendations, see the [WAN & Hybrid Cloud Deployment Guide](file:///Users/Cridiv/Documents/Auvis/docs/wan_hybrid_guide.md).
 
 ---
 
@@ -139,9 +163,12 @@ gateway:
 #### 3. pgvector (`pgvector`)
 - **Settings**:
   - `host`, `port`, `dbname`, `table`, `sslmode`
-  - `vector_field`: Response payload key containing vector embedding
-  - `vector_dim`: Vector dimension count (e.g. `"1536"`)
+  - `vector_field`: Payload key containing float vector array (e.g. `"embedding"`).
+  - `vector_dim`: Vector dimension count (e.g. `"3"`, `"1536"`).
 - **Auth**: `username`, `password`
+- **Schema Prerequisites & Behavior**:
+  - The destination automatically executes `CREATE EXTENSION IF NOT EXISTS vector;` and creates the target table with a `vector(N)` column if `auto_create_table: "true"`.
+  - The record payload **must** contain the designated `vector_field` formatted as a JSON float array (e.g. `"embedding": [0.12, 0.45, 0.89]`). If the designated vector field is missing or malformed, the pgvector write returns a validation error to prevent inserting unindexed vector data.
 
 #### 4. Weaviate (`weaviate`)
 - **Settings**:

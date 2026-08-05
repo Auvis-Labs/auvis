@@ -1,0 +1,122 @@
+# docker-compose.vps.yml — AUVIS real Kafka ingestion stack for the VPS (8 CPU / 16GB)
+#
+#   producer --produce--> redpanda:9092 (topic patient-records, 12 partitions)
+#                                <--consume (group auvis-group)--
+#                                     auvis (16-worker pipeline, policy-governed)
+#        --govern--> postgres (governed_records) + pgvector (governed_vectors)
+#        --audit--> /data/audit.jsonl + SSE on :8082/auvis/stream
+#
+# Deploy:
+#   AUVIS_SALT=<salt> POSTGRES_PASSWORD=<pw> docker compose -f docker-compose.vps.yml up -d
+#   docker compose -f docker-compose.vps.yml exec producer \
+#       /app/producer -n 10000 -rate 1000 -create-topic
+#
+# SECURITY: Kafka (9092) and Postgres (5432) are NOT exposed beyond the VPS
+# firewall. Only :8082 (Auvis gateway + SSE + health) is intended for public
+# access, ideally behind a reverse proxy with TLS. Broker is PLAINTEXT on a
+# private interface — harden with SASL/SCRAM + TLS before real PHI.
+
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────
+  # Redpanda — Kafka-compatible broker with
+  # built-in Schema Registry (:8081) + admin (:9644)
+  # ─────────────────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:v24.2.4
+    container_name: auvis-redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --smp 4
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:9092
+      - --rpc-addr 0.0.0.0:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --set redpanda.auto_create_topics_enabled=true
+      - --set redpanda.enable_metrics_reporter=true
+      - --set redpanda.cluster_id=auvis-cluster
+    ports:
+      - "9092:9092"   # Kafka API
+      - "8081:8081"   # Schema Registry
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health --exit-when-ok --timeout 20s"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+
+  # ─────────────────────────────────────────
+  # Postgres + pgvector — governed-record sinks
+  # ─────────────────────────────────────────
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: auvis-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: auvis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: auvis_demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auvis"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # ─────────────────────────────────────────
+  # Auvis — consumes Kafka, governs, writes sinks
+  # ─────────────────────────────────────────
+  auvis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auvis-gateway
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./policies:/app/policies:ro
+      - ./auvis.kafka.yaml:/app/auvis.yaml:ro
+      - audit-data:/data
+    environment:
+      AUVIS_ENV: production
+      AUVIS_SALT: ${AUVIS_SALT}
+      AUVIS_AUDIT_FILE: /data/audit.jsonl
+      AUVIS_PORT: "8082"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # ─────────────────────────────────────────
+  # Producer — one-shot batch CLI (start with -n / -rate)
+  # Build context is its own directory (separate Go module)
+  # ─────────────────────────────────────────
+  producer:
+    build:
+      context: ./test-cmd/kafka-producer
+      dockerfile: Dockerfile
+    container_name: auvis-producer
+    restart: "no"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      # default brokers; override with command flags if needed
+      KAFKA_BROKERS: redpanda:9092
+
+volumes:
+  redpanda-data:
+  pgdata:
+  audit-data:

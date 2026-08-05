@@ -1,0 +1,36 @@
+# -------------------------------------------------------
+# Kafka ingestion policy — patient-records topic
+# -------------------------------------------------------
+# Applied to every record Auvis consumes from the Kafka
+# stream (source: kafka.patient-records) BEFORE it is
+# written to the Postgres / pgvector sink.
+#
+# No `on:` trigger is set on purpose: the pipeline evaluates
+# with trigger "ingest", but the transform engine re-resolves
+# the policy with trigger "read". Leaving triggers empty means
+# this policy matches both paths.
+# -------------------------------------------------------
+
+policies:
+  - name: kafka-patient-ingest
+    description: Govern PHI in Kafka patient records before they reach the vector DB
+    compliance_tags: [HIPAA, GDPR]
+    match:
+      roles: ["*"]
+      resource: "*"
+      sources: ["kafka.topic('patient-records')"]
+    rules:
+      - field: "patient_id"
+        action: pseudonymize
+      - field: "email"
+        action: mask
+      - field: "phone"
+        action: mask
+      - field: "date_of_birth"
+        action: mask
+      - field: "ssn"
+        action: remove
+      - field: "insurance_id"
+        action: remove
+      - field: "notes"
+        action: redact

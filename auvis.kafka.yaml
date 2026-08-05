@@ -1,0 +1,76 @@
+# auvis.kafka.yaml — AUVIS gateway config for Kafka ingestion
+#
+# Same schema as auvis.yaml, PLUS:
+#   - `sources:`        — Kafka/Redpanda ingestion source (pipeline.Source)
+#   - `destinations:`   — Postgres + pgvector sinks (records written AFTER governance)
+#
+# Use:  auvis dev -c auvis.kafka.yaml
+# On the VPS this file is mounted as /app/auvis.yaml inside the container.
+
+version: "1"
+
+gateway:
+  # HTTP proxy + SSE stream + health endpoints.
+  port: 8082
+  # Not used for Kafka ingestion, but required to be non-empty at startup.
+  upstream: "http://localhost:8000"
+
+  # Policy directory — one file per domain. kafka_ingest.yaml matches the
+  # patient-records stream.
+  policies_dir: ./policies
+
+  audit_file: ./audit.jsonl
+  audit_max_size_mb: 100
+  audit_fsync_interval: "never"
+
+  upstream_timeout_seconds: 10
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Kafka / Redpanda ingestion source
+#
+# Auvis consumes from the topic as a consumer-group member (group_id), decodes
+# each message (Schema Registry Avro/Protobuf or plain JSON), runs it through
+# policy evaluation + transformation, then writes it to every destination.
+# Failed records fall back to the dead-letter topic.
+# ─────────────────────────────────────────────────────────────────────────────
+sources:
+  - type: kafka
+    settings:
+      brokers: "redpanda:9092"
+      topics: "patient-records"
+      group_id: "auvis-group"
+      auto_offset_reset: "earliest"
+      max_wait_ms: "100"
+      dead_letter_topic: "patient-dlq"
+      metrics_provider: "prometheus"
+      metrics_port: "9091"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Destinations — synchronous, fail-closed writes of the GOVERNED record.
+# Both point at the same VPS Postgres instance (different tables).
+# ─────────────────────────────────────────────────────────────────────────────
+destinations:
+  - type: postgres
+    settings:
+      host: postgres
+      port: "5432"
+      dbname: auvis_demo
+      table: governed_records
+      sslmode: disable
+      auto_create_table: "true"
+    auth:
+      username: auvis
+      password: ${POSTGRES_PASSWORD}
+
+  - type: pgvector
+    settings:
+      host: postgres
+      port: "5432"
+      dbname: auvis_demo
+      table: governed_vectors
+      vector_field: embedding
+      vector_dim: "3"
+      auto_create_table: "true"
+    auth:
+      username: auvis
+      password: ${POSTGRES_PASSWORD}

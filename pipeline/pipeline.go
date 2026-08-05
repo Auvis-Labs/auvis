@@ -141,6 +141,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 }
 
 func (p *Pipeline) processRecord(ctx context.Context, record Record) {
+	slog.Info("Pipeline processing record", "pipeline", p.Name, "record_id", record.ID, "source", record.Source)
 	defer func() {
 		if rErr := recover(); rErr != nil {
 			metrics.IncPanic("pipeline_process")
@@ -334,6 +335,7 @@ func (p *Pipeline) processRecord(ctx context.Context, record Record) {
 		RowsFiltered:       rowsFiltered,
 		UpstreamStatus:     200,
 		DurationMS:         duration,
+		DestinationWritten: shouldWrite && writeErr == nil && !p.DryRun,
 	}
 
 	if writeErr != nil {

@@ -153,16 +153,41 @@ func (k *KafkaSource) Connect() error {
 		}
 	}
 
+	// WAN-safe consumer group timeouts:
+	// Default kafka-go values (30s session / 3s heartbeat) cause rebalance storms
+	// over high-latency WAN links. Use conservative defaults that can be overridden.
+	sessionTimeout := 60 * time.Second
+	if stStr, ok := k.settings["session_timeout_ms"]; ok {
+		if st, err := time.ParseDuration(stStr + "ms"); err == nil {
+			sessionTimeout = st
+		}
+	}
+	heartbeatInterval := 5 * time.Second
+	if hiStr, ok := k.settings["heartbeat_interval_ms"]; ok {
+		if hi, err := time.ParseDuration(hiStr + "ms"); err == nil {
+			heartbeatInterval = hi
+		}
+	}
+	rebalanceTimeout := 30 * time.Second
+	if rtStr, ok := k.settings["rebalance_timeout_ms"]; ok {
+		if rt, err := time.ParseDuration(rtStr + "ms"); err == nil {
+			rebalanceTimeout = rt
+		}
+	}
+
 	if k.groupID != "" {
 		// Consumer group mode: single reader handles multiple topics via GroupTopics
 		rcfg := kafka.ReaderConfig{
-			Brokers:     k.brokers,
-			Dialer:      dialer,
-			StartOffset: startOffset,
-			GroupID:     k.groupID,
-			MinBytes:    minBytes,
-			MaxBytes:    maxBytes,
-			MaxWait:     maxWait,
+			Brokers:          k.brokers,
+			Dialer:           dialer,
+			StartOffset:      startOffset,
+			GroupID:          k.groupID,
+			MinBytes:         minBytes,
+			MaxBytes:         maxBytes,
+			MaxWait:          maxWait,
+			SessionTimeout:   sessionTimeout,
+			HeartbeatInterval: heartbeatInterval,
+			RebalanceTimeout: rebalanceTimeout,
 		}
 		if len(k.topics) == 1 {
 			rcfg.Topic = k.topics[0]
@@ -250,7 +275,10 @@ func (k *KafkaSource) applyCommitInterval(cfg *kafka.ReaderConfig) {
 			cfg.CommitInterval = d
 		} else {
 			slog.Warn("Invalid commit_interval format, using default", "provided", intervalStr)
+			cfg.CommitInterval = 1 * time.Second
 		}
+	} else {
+		cfg.CommitInterval = 1 * time.Second
 	}
 }
 

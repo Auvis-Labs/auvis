@@ -223,6 +223,15 @@ And the audit log records:
 
 ---
 
+## Documentation
+
+- [Configuration Reference (`auvis.yaml`)](docs/configuration.md) — Comprehensive guide to gateway settings, streaming sources, and destination sinks.
+- [WAN & Hybrid Cloud Deployment Guide](docs/wan_hybrid_guide.md) — Architecture patterns, consumer group offset rules, and WAN timeout tuning for edge-to-cloud streams.
+- [Pipeline Architecture (`pipeline`)](docs/pipeline.md) — Deep dive into stream ingestion, policy engines, and destination drivers.
+- [Audit & Compliance Logging](docs/audit.md) — Structured audit format, fsync durability modes, and compliance reports.
+
+---
+
 ## Policy DSL
 
 ### Actions

@@ -528,7 +528,7 @@ func validateSinglePolicy(file string, index int, p policyEntry, seenNames map[s
 		})
 	} else {
 		for i, rule := range p.Rules {
-			if rule.Field == "" {
+			if len(rule.Field) == 0 {
 				errors = append(errors, validationError{
 					File:   file,
 					Policy: p.Name,

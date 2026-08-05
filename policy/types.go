@@ -1,5 +1,28 @@
 package policy
 
+import (
+	"fmt"
+	"gopkg.in/yaml.v3"
+)
+
+// StringOrSlice allows a YAML field to be specified as a single string ("email")
+// or as a list of alias strings (["email", "user_email", "email_address"]).
+type StringOrSlice []string
+
+func (s *StringOrSlice) UnmarshalYAML(value *yaml.Node) error {
+	var single string
+	if err := value.Decode(&single); err == nil {
+		*s = []string{single}
+		return nil
+	}
+	var multi []string
+	if err := value.Decode(&multi); err == nil {
+		*s = multi
+		return nil
+	}
+	return fmt.Errorf("field must be a string or a list of strings")
+}
+
 // PolicyFile is the top-level structure of a .yaml policy file.
 type PolicyFile struct {
 	Policies []Policy `yaml:"policies"`
@@ -59,10 +82,10 @@ type Response struct {
 	Rehydrate bool `yaml:"rehydrate"`
 }
 
-// Rule defines what to do with a single field.
+// Rule defines what to do with a single field or list of field aliases.
 type Rule struct {
-	Field        string     `yaml:"field"`         // dot-notation: "email", "address.street", "*"
-	FieldsTagged []string   `yaml:"fields_tagged"` // tag list: ["@pii", "@financial"]
+	Field        StringOrSlice `yaml:"field"`         // single string ("email") or list of aliases (["email", "user_email"])
+	FieldsTagged []string      `yaml:"fields_tagged"` // tag list: ["@pii", "@financial"]
 	Action       RuleAction `yaml:"action"`        // mask | remove | allow | deny | llm_intercept | redact | truncate
 	Condition string     `yaml:"condition"` // optional: "record.consent == false"
 	Length    int        `yaml:"length"`    // optional: used for truncate length

@@ -531,26 +531,31 @@ func compile(policies []Policy) (map[string]*EffectivePolicy, error) {
 		}
 
 		for _, rule := range p.Rules {
-			if rule.Field == "*" {
-				// "*" is a policy-level directive — never store it as a real field in Rules unless it's an LLM interceptor action
-				if rule.Action == ActionDeny {
-					ep.Deny = true
+			for _, fieldName := range rule.Field {
+				if fieldName == "*" {
+					// "*" is a policy-level directive — never store it as a real field in Rules unless it's an LLM interceptor action
+					if rule.Action == ActionDeny {
+						ep.Deny = true
+					}
+					if rule.Action == ActionLLMIntercept {
+						ep.Rules["*"] = rule.Action
+					}
+					// ActionAllow on "*" means passthrough — ep.Deny stays false (default).
+					continue
 				}
-				if rule.Action == ActionLLMIntercept {
-					ep.Rules["*"] = rule.Action
-				}
-				// ActionAllow on "*" means passthrough — ep.Deny stays false (default).
-				continue
-			}
 
-			if rule.Field != "" {
-				ep.Rules[rule.Field] = rule.Action
-				ep.RuleConditions[rule.Field] = rule.Condition
-				if rule.Length > 0 {
-					ep.RuleLengths[rule.Field] = rule.Length
-				}
-				if rule.Seed != "" {
-					ep.RuleSeeds[rule.Field] = rule.Seed
+				if fieldName != "" {
+					// Register field name and all common casing variants (snake_case, camelCase, PascalCase, kebab-case)
+					for _, variant := range FieldVariants(fieldName) {
+						ep.Rules[variant] = rule.Action
+						ep.RuleConditions[variant] = rule.Condition
+						if rule.Length > 0 {
+							ep.RuleLengths[variant] = rule.Length
+						}
+						if rule.Seed != "" {
+							ep.RuleSeeds[variant] = rule.Seed
+						}
+					}
 				}
 			}
 
@@ -590,19 +595,109 @@ func isResponseEmpty(r Response) bool {
 	return r.DataPath == "" && r.Array == nil && !r.Rehydrate
 }
 
+// CanonicalizeField converts any field name into a normalized lower-case string without delimiters.
+// Examples:
+//   "email_address" -> "emailaddress"
+//   "emailAddress"  -> "emailaddress"
+//   "EmailAddress"  -> "emailaddress"
+//   "email-address" -> "emailaddress"
+func CanonicalizeField(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// FieldVariants generates common naming convention variants for a given field name.
+// Examples:
+//   "email_address" -> ["email_address", "emailAddress", "EmailAddress", "email-address", "EMAIL_ADDRESS"]
+//   "emailAddress"  -> ["emailAddress", "email_address", "EmailAddress", "email-address", "EMAIL_ADDRESS"]
+func FieldVariants(s string) []string {
+	if s == "" || s == "*" {
+		return []string{s}
+	}
+	parts := splitFieldParts(s)
+	if len(parts) <= 1 {
+		return dedupeSlice([]string{s, strings.ToLower(s), strings.ToUpper(s)})
+	}
+
+	snake := strings.Join(parts, "_")
+	kebab := strings.Join(parts, "-")
+	upperSnake := strings.ToUpper(snake)
+
+	// camelCase: first part lower, subsequent parts title
+	var camelB strings.Builder
+	camelB.WriteString(parts[0])
+	for _, p := range parts[1:] {
+		if len(p) > 0 {
+			camelB.WriteString(strings.ToUpper(p[:1]) + p[1:])
+		}
+	}
+	camel := camelB.String()
+
+	// PascalCase: all parts title
+	var pascalB strings.Builder
+	for _, p := range parts {
+		if len(p) > 0 {
+			pascalB.WriteString(strings.ToUpper(p[:1]) + p[1:])
+		}
+	}
+	pascal := pascalB.String()
+
+	return dedupeSlice([]string{s, snake, camel, pascal, kebab, upperSnake})
+}
+
+func splitFieldParts(s string) []string {
+	var parts []string
+	var buf strings.Builder
+
+	for i, r := range s {
+		if r == '_' || r == '-' || r == ' ' {
+			if buf.Len() > 0 {
+				parts = append(parts, strings.ToLower(buf.String()))
+				buf.Reset()
+			}
+			continue
+		}
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			prev := rune(s[i-1])
+			if prev >= 'a' && prev <= 'z' {
+				if buf.Len() > 0 {
+					parts = append(parts, strings.ToLower(buf.String()))
+					buf.Reset()
+				}
+			}
+		}
+		buf.WriteRune(r)
+	}
+	if buf.Len() > 0 {
+		parts = append(parts, strings.ToLower(buf.String()))
+	}
+	return parts
+}
+
 // findFieldOverlaps returns a list of field names that both policies define rules for.
 func findFieldOverlaps(a, b Policy) []string {
 	fieldsA := make(map[string]bool)
 	for _, r := range a.Rules {
-		if r.Field != "" {
-			fieldsA[r.Field] = true
+		for _, f := range r.Field {
+			if f != "" {
+				fieldsA[f] = true
+				fieldsA[CanonicalizeField(f)] = true
+			}
 		}
 	}
 
 	var overlaps []string
 	for _, r := range b.Rules {
-		if r.Field != "" && fieldsA[r.Field] {
-			overlaps = append(overlaps, r.Field)
+		for _, f := range r.Field {
+			if f != "" && (fieldsA[f] || fieldsA[CanonicalizeField(f)]) {
+				overlaps = append(overlaps, f)
+			}
 		}
 	}
 	return overlaps

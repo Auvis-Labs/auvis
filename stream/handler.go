@@ -19,6 +19,8 @@ func Handler() http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		fmt.Fprintf(w, ": connected\n\n")
+		flusher.Flush()
 
 		ch := GlobalBroadcaster.Subscribe()
 		defer GlobalBroadcaster.Unsubscribe(ch)

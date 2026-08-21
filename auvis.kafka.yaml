@@ -36,8 +36,8 @@ gateway:
 sources:
   - type: kafka
     settings:
-      brokers: "redpanda:9092"
-      topics: "patient-records"
+      brokers: "100.54.107.138:9092"
+      topic: "patient-records"
       group_id: "auvis-group"
       auto_offset_reset: "earliest"
       max_wait_ms: "100"
@@ -46,31 +46,18 @@ sources:
       metrics_port: "9091"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Destinations — synchronous, fail-closed writes of the GOVERNED record.
-# Both point at the same VPS Postgres instance (different tables).
+# Destinations — optional downstream database sinks (e.g. Postgres / pgvector).
+# Uncomment if connecting to a local or remote database sink.
 # ─────────────────────────────────────────────────────────────────────────────
-destinations:
-  - type: postgres
-    settings:
-      host: postgres
-      port: "5432"
-      dbname: auvis_demo
-      table: governed_records
-      sslmode: disable
-      auto_create_table: "true"
-    auth:
-      username: auvis
-      password: ${POSTGRES_PASSWORD}
-
-  - type: pgvector
-    settings:
-      host: postgres
-      port: "5432"
-      dbname: auvis_demo
-      table: governed_vectors
-      vector_field: embedding
-      vector_dim: "3"
-      auto_create_table: "true"
-    auth:
-      username: auvis
-      password: ${POSTGRES_PASSWORD}
+# destinations:
+#   - type: postgres
+#     settings:
+#       host: localhost
+#       port: "5432"
+#       dbname: auvis_demo
+#       table: governed_records
+#       sslmode: disable
+#       auto_create_table: "true"
+#     auth:
+#       username: auvis
+#       password: ${POSTGRES_PASSWORD}

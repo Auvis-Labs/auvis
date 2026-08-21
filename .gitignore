@@ -87,8 +87,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
+!app/lib/
 parts/
 sdist/
 var/
@@ -135,3 +135,10 @@ docs/articles/
 tests/
 test-cmd/
 test-server/
+auvis_technical_risk.md
+.gitignore
+.opencode/agents/architect.md
+.opencode/agents/reviewer.md
+.codelens-cache/explanations.json
+.gitignore
+.codelens-cache/graph.json

@@ -145,3 +145,152 @@ h1, h2, h3, h4, .font-display {
   background-color: #7B62FC;
   color: #fff;
 }
+
+/* ==========================================================================
+   Auvis Code Snippet & Syntax Highlighting (Prism Theme)
+   Specially crafted for Auvis Docs and Devlogs with distinctive comment styling
+   ========================================================================== */
+
+/* Pre & Code Containers */
+pre[class*="language-"],
+pre {
+  background: #0b0c11 !important;
+  color: #e2e8f0;
+}
+
+pre code {
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 0.8125rem !important; /* 13px */
+  line-height: 1.7 !important;
+  tab-size: 2;
+}
+
+/* Ensure no nested code span gets a white or light background */
+pre code span,
+pre span {
+  background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   COMMENTS & PROLOGS:
+   Distinct, elegant, highly legible muted slate-blue with italic styling.
+   Ensures developer explanations in YAML, Go, Bash, PromQL stand out from code.
+   -------------------------------------------------------------------------- */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #8b9bb4 !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  opacity: 0.95;
+}
+
+/* Punctuation & Delimiters (brackets, braces, commas, colons) */
+.token.punctuation {
+  color: #64748b !important;
+}
+
+/* YAML Keys, JSON Properties, HTML/XML Tags */
+.token.property,
+.token.tag,
+.token.key,
+.token.key.atrule {
+  color: #c4b5fd !important; /* Soft lavender */
+  font-weight: 500;
+}
+
+/* Language Keywords (func, return, import, package, if, else, type) */
+.token.keyword {
+  color: #c084fc !important; /* Vibrant violet */
+  font-weight: 600;
+}
+
+/* Strings, Characters, Attribute Values */
+.token.string,
+.token.char,
+.token.attr-value {
+  color: #86efac !important; /* Fresh mint emerald */
+}
+
+/* Numbers, Booleans, Constants */
+.token.number,
+.token.boolean,
+.token.constant {
+  color: #fdba74 !important; /* Warm amber / apricot */
+  font-weight: 500;
+}
+
+/* Functions, Method calls, Class Names */
+.token.function,
+.token.class-name {
+  color: #67e8f9 !important; /* Electric cyan */
+  font-weight: 500;
+}
+
+/* Parameters, CLI Flags, Shell Variables */
+.token.parameter,
+.token.variable {
+  color: #93c5fd !important; /* Soft sky blue */
+}
+
+/* Operators (=, ==, !=, >, <, +, -, *, /, &&, ||) */
+.token.operator {
+  color: #f472b6 !important; /* Soft rose / pink */
+}
+
+/* Builtins, Types (int, string, error, byte, map) */
+.token.builtin {
+  color: #38bdf8 !important; /* Electric blue */
+}
+
+/* Regular Expressions */
+.token.regex {
+  color: #fde047 !important; /* Yellow */
+}
+
+/* URLs, Entities, Important */
+.token.url {
+  color: #38bdf8 !important;
+  text-decoration: underline;
+}
+
+.token.important {
+  color: #fdba74 !important;
+  font-weight: 600;
+}
+
+.token.bold {
+  font-weight: 700;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+/* Diffs */
+.token.inserted {
+  color: #86efac !important;
+  background: rgba(134, 239, 172, 0.1) !important;
+}
+
+.token.deleted {
+  color: #f87171 !important;
+  background: rgba(248, 113, 113, 0.1) !important;
+}
+
+/* PromQL Specific Tokens */
+.token.range-duration {
+  color: #fdba74 !important;
+}
+.token.context-range {
+  color: #94a3b8 !important;
+}
+
+/* Selection within code blocks */
+pre code::selection,
+pre code span::selection {
+  background-color: rgba(123, 98, 252, 0.45) !important;
+  color: #ffffff !important;
+}

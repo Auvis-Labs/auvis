@@ -110,30 +110,33 @@ export default function Footer() {
                 <span className="mb-1 text-sm font-semibold uppercase tracking-wider text-white">
                   Resources
                 </span>
-                <a
-                  href="https://github.com/cridiv/Auvis#documentation"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-slate-400 transition-colors hover:text-white flex items-center gap-1"
+                {/* Reports code temporarily commented out
+                <Link
+                  href="/report"
+                  className="text-sm text-slate-400 transition-colors hover:text-white flex items-center gap-1.5"
                 >
-                  Documentation <span className="text-xs opacity-75">↗</span>
-                </a>
-                <a
-                  href="https://github.com/cridiv/Auvis/blob/main/docs/policies.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-slate-400 transition-colors hover:text-white flex items-center gap-1"
+                  <span>The Auvis Report</span>
+                  <span className="rounded-full bg-[#7B62FC]/20 px-1.5 py-0.2 font-mono text-[10px] text-[#C4B5FD]">Weekly</span>
+                </Link>
+                */}
+                <Link
+                  href="/docs"
+                  className="text-sm text-slate-400 transition-colors hover:text-white"
                 >
-                  Policy DSL <span className="text-xs opacity-75">↗</span>
-                </a>
-                <a
-                  href="https://github.com/cridiv/Auvis/blob/main/docs/audit.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-slate-400 transition-colors hover:text-white flex items-center gap-1"
+                  Documentation
+                </Link>
+                <Link
+                  href="/docs/policies"
+                  className="text-sm text-slate-400 transition-colors hover:text-white"
                 >
-                  Audit Guide <span className="text-xs opacity-75">↗</span>
-                </a>
+                  Policy DSL
+                </Link>
+                <Link
+                  href="/docs/audit"
+                  className="text-sm text-slate-400 transition-colors hover:text-white"
+                >
+                  Audit Guide
+                </Link>
                 <a
                   href="https://github.com/cridiv/Auvis"
                   target="_blank"

@@ -11,18 +11,22 @@ In a typical hybrid setup:
 2. **Privacy Gateway**: AUVIS running locally on an edge server or local environment (`:8082`).
 3. **Governance Sinks**: Local database instances (Postgres with `pgvector`, Pinecone, Weaviate) or downstream cloud applications.
 
-```
-┌───────────────────────────┐         WAN (~150ms RTT)         ┌───────────────────────────┐
-│   Remote VPS / Cloud      │ ───────────────────────────────> │    Local Edge Gateway     │
-│   Kafka Broker (:9092)    │                                  │    AUVIS Engine (:8082)   │
-└───────────────────────────┘                                  └─────────────┬─────────────┘
-                                                                             │
-                                                                 (Governed Records & Vectors)
-                                                                             ▼
-                                                               ┌───────────────────────────┐
-                                                               │  Local Docker Containers  │
-                                                               │  Postgres + pgvector      │
-                                                               └───────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Cloud["Remote Cloud / VPS"]
+        Kafka["Kafka Broker (:9092)<br/>patient-records topic"]
+    end
+
+    subgraph Edge["Local Edge Gateway"]
+        Auvis["<b>AUVIS Engine (:8082)</b><br/>In-flight governance &amp; transformation"]
+    end
+
+    subgraph Sinks["Local Storage Sinks"]
+        DB["Postgres + pgvector (:5432)<br/>Governed Records &amp; Embeddings"]
+    end
+
+    Kafka -->|"WAN (~150ms RTT)<br/>Buffered fetch &amp; 60s session"| Auvis
+    Auvis -->|"Synchronous Write"| DB
 ```
 
 ---

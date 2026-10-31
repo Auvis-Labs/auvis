@@ -1,0 +1,160 @@
+---
+title: "Policy YAML Reference"
+description: "Complete guide to writing policies, match dimensions, field transformation actions, row filtering, and shadow PHI posture."
+section: "Policies"
+order: 1
+---
+
+This document is the complete reference for writing Auvis policy files. Policies control how API responses and data pipeline records are governed, transformed, and audited based on identity, resource, source, destination, and execution context.
+
+Policy files are stored in the `policies/` directory (configured via `gateway.policies_dir` in `auvis.yaml`). Auvis performs **zero-downtime hot-reload** of the entire directory on any `.yaml` or `.yml` file change.
+
+---
+
+## Complete Policy File Schema
+
+```yaml
+policies:
+  - name: "pii-analyst-users"              # Required: unique policy identifier
+    description: "Mask PII for analysts on /users"  # Optional: human-readable intent
+    priority: 100                           # Optional: higher value wins in merge order
+    enabled: true                           # Optional: set false to disable without deleting
+    on: ["read"]                           # Optional: "read", "ingest", or both. Empty = all
+    ungoverned_phi_posture: warn            # Optional: "warn" | "auto_mask" | "block"
+
+    match:
+      roles: ["analyst", "support"]         # Required: role list. Use ["*"] for all roles
+      resource: "/users"                    # Required: URL path prefix
+      services: ["user-service", "analytics-*"]  # Optional: service name glob patterns
+      sources: ["kafka.topic('user-events')"]    # Optional: pipeline source patterns
+      destinations: ["postgres.table('users')"]  # Optional: pipeline destination patterns
+      fields: ["email", "ssn"]             # Optional: only apply rules to these fields
+
+    response:
+      data_path: "data"                     # Optional: path to records inside envelope
+      array: true                           # Optional: override auto-detection of array vs object
+      rehydrate: false                      # Optional: restore PII in LLM response (for llm_intercept)
+
+    filter_condition: "record.status == 'active'"  # Optional: row-level filter
+
+    rules:
+      - field: "email"
+        action: mask
+        condition: "user.clearance != 'high'"  # Optional: conditional enforcement
+      - field: "ssn"
+        action: remove
+      - field: "address.street"
+        action: redact
+      - field: "bio"
+        action: truncate
+        length: 100                         # Characters to keep
+      - field: "user_id"
+        action: pseudonymize                # Format-preserving deterministic tokenization
+      - field: "internal_notes"
+        action: deny
+      - field: "*"
+        action: allow                       # Wildcard allow — passthrough entire response
+      - fields_tagged: ["@pii", "@financial"]  # Tag-based rules
+        action: mask
+        condition: "user.role != 'admin'"
+      - field: "*"
+        action: llm_intercept               # Enables LLM PII scanning on entire request
+
+    compliance_tags: ["GDPR", "HIPAA", "PCI-DSS"]
+```
+
+---
+
+## Field Reference
+
+### Top-Level Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | ✅ | Unique policy identifier. Used in audit logs and status reports. |
+| `description` | `string` | — | Human-readable intent statement. Not evaluated at runtime. |
+| `priority` | `int` | — | Policy priority for merge ordering. Higher number = higher precedence. Default: `0`. |
+| `enabled` | `bool` | — | Set `false` to disable without deleting. Default: `true` (enabled). |
+| `on` | `[]string` | — | Trigger contexts: `"read"` (HTTP proxy), `"ingest"` (pipeline). Empty = both. |
+| `ungoverned_phi_posture` | `string` | — | Shadow PHI posture for fields not covered by rules: `"warn"`, `"auto_mask"`, or `"block"`. |
+| `match` | `Match` | ✅ | Matching criteria — all specified fields must match. |
+| `response` | `Response` | — | Describes response envelope shape. |
+| `rules` | `[]Rule` | ✅ | Field-level transformation rules. |
+| `filter_condition` | `string` | — | Row-level condition expression to filter array elements. |
+| `compliance_tags` | `[]string` | — | Compliance frameworks: `GDPR`, `HIPAA`, `PCI-DSS`, `CCPA`, `SOX`. |
+
+---
+
+## Transformation Actions
+
+| Action | What it does | Input example | Output example |
+|---|---|---|---|
+| `allow` | Pass field through untouched | `"john@example.com"` | `"john@example.com"` |
+| `mask` | Pattern-aware partial masking | `"john@example.com"` | `"***@example.com"` |
+| `remove` | Delete field entirely from output | `{"ssn": "123-45-6789"}` | `{}` |
+| `redact` | Replace with literal `"[REDACTED]"` | `"sensitive note"` | `"[REDACTED]"` |
+| `truncate` | Keep first N characters (Unicode-safe) | `"A long biography..."` | `"A long biograp"` |
+| `anonymize` | One-way SHA-256 hash + `AUVIS_SALT` | `"user-101"` | `"e3b0c44..."` |
+| `pseudonymize` | Format-preserving deterministic HMAC | `"amara@gmail.com"` | `"usr_3a9f81@gmail.com"` |
+| `deny` | Drop field and log field-level denial | `{"internal_id": 99}` | `{}` |
+| `llm_intercept` | Scan request for PII, replace with tokens, optionally rehydrate response | *(whole body)* | *(tokenized body)* |
+
+### Smart Mask Patterns
+
+When `action: mask` is applied, Auvis automatically detects the value format:
+
+| Value Pattern | Masked Output |
+|---|---|
+| Email: `john.doe@example.com` | `***@example.com` |
+| SSN: `123-45-6789` | `**-**-6789` |
+| Credit card: `4111 2222 3333 4444` | `*** **** **** 4444` |
+| Phone: `+1-555-123-4567` | `***-***-4567` |
+| Generic string (>4 chars): `"John Doe"` | `"****Doe"` (last 4 preserved) |
+
+---
+
+## Pseudonymization (`action: pseudonymize`)
+
+`action: pseudonymize` produces **deterministic, format-preserving, one-way pseudonyms** powered by `HMAC-SHA256(seed, value)`:
+
+* **Consistent Entity Tracking**: The same input always produces the exact same pseudonymous output across queries, allowing AI agents or analytics pipelines to join user activity without ever seeing real PII.
+* **Format Preserved**: Emails remain valid email addresses (`usr_3a9f81@gmail.com`), SSNs use reserved non-issued numbers, and UUIDs keep their length.
+* **Per-Rule Seed Override (`seed`)**: Isolate pseudonym spaces for specific tenants or teams by supplying a `seed: "secret-phrase"`.
+
+```yaml
+rules:
+  - field: "patient_id"
+    action: pseudonymize
+    seed: "oncology-department-salt"
+```
+
+---
+
+## Row-Level Filtering (`filter_condition`)
+
+Drop entire rows from JSON array responses before returning data to the client:
+
+```yaml
+# Drop patients without consent
+filter_condition: "record.consent == true"
+
+# Filter by region
+filter_condition: "record.region in ['US', 'CA']"
+
+# Filter by tags
+filter_condition: "record.tags contains 'public'"
+```
+
+<Callout type="tip" title="Fail-Closed Guarantee">
+If a referenced attribute in `filter_condition` is missing from the record, the condition marks indeterminate and **excludes the row** by default to prevent accidental data exposure.
+</Callout>
+
+---
+
+## Shadow PHI Posture (`ungoverned_phi_posture`)
+
+Controls what happens when Auvis detects sensitive PII/PHI in a response that **is not governed by any rule**:
+
+* `warn` *(default in development)*: Emits a warning log and adds an `X-Auvis-Exposed-PHI` HTTP header.
+* `auto_mask` *(default in production)*: Automatically redacts the detected PII on the fly.
+* `block`: Rejects the entire request immediately with an HTTP 403 Forbidden.

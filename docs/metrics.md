@@ -1,68 +1,82 @@
-# Module Documentation: `metrics`
+# Auvis Prometheus Telemetry & Metrics Reference
 
-The `metrics` module centralises all Prometheus instrumentation for Auvis, providing standard counters, gauges, and histograms scraped from `/metrics` or `/auvis/metrics`.
+Auvis exports production-grade Prometheus metrics for real-time monitoring of policy enforcement, gateway latency, circuit breaker states, and streaming ingestion health.
+
+Metrics are served over standard HTTP on `GET /metrics` and `GET /auvis/metrics`.
 
 > [!TIP]
-> **Grafana Dashboard Ready:** Import **[examples/grafana_dashboard.json](file:///Users/Cridiv/Documents/Auvis/examples/grafana_dashboard.json)** directly into Grafana for instant visual monitoring of throughput, P95/P99 latency, outcomes, policy match rates, circuit breakers, and destination health.
+> **Grafana Dashboard Ready:** Import **[examples/grafana_dashboard.json](file:///Users/Cridiv/Documents/Auvis/examples/grafana_dashboard.json)** directly into your Grafana instance for visual monitoring of throughput, P95/P99 latency, outcomes, policy match rates, circuit breakers, and destination health.
 
 ---
 
-## 📂 Prometheus Metric Reference Table
+## 📊 Prometheus Metric Reference Table
 
 | Metric Name | Type | Labels | Description |
 |---|---|---|---|
-| `auvis_requests_total` | Counter | `status` | Total HTTP requests processed by HTTP status code (e.g. `200`, `403`, `500`). |
-| `auvis_requests_by_outcome_total` | Counter | `outcome` | Requests count by transformation disposition (`masked`, `removed`, `denied`, `allowed`). |
+| `auvis_requests_total` | Counter | `status` | Total HTTP requests processed, labeled by HTTP status code (`200`, `403`, `500`). |
+| `auvis_requests_by_outcome_total` | Counter | `outcome` | Requests count by transformation disposition: `masked`, `removed`, `denied`, `allowed`. |
 | `auvis_request_duration_seconds` | Histogram | `method`, `resource` | Latency histogram of HTTP proxy request handling in seconds. |
-| `auvis_destination_writes_total` | Counter | `destination`, `status` | Storage destination write attempts by driver name and status (`success`, `failure`). |
-| `auvis_circuit_breaker_state` | Gauge | `destination` | Current state of destination circuit breakers (`0 = Closed`, `1 = Open`, `2 = Half-Open`). |
+| `auvis_destination_writes_total` | Counter | `destination`, `status` | Storage destination write attempts by driver name (`postgres`, `pgvector`, `pinecone`, `weaviate`) and status (`success`, `failure`). |
+| `auvis_circuit_breaker_state` | Gauge | `destination` | Current circuit breaker state per destination: `0 = Closed` (healthy), `1 = Open` (tripped/failing fast), `2 = Half-Open` (probing). |
 | `auvis_policy_matches_total` | Counter | `matched` | Requests matching at least one policy vs unmatched (`true`, `false`). |
-| `auvis_pii_scan_total` | Counter | `mode` | PII scanner invocations by execution path (`regex`, `llm`). |
-| `auvis_recovered_panics_total` | Counter | `component` | Total count of runtime panics recovered by Auvis safety handlers. |
+| `auvis_pii_scan_total` | Counter | `mode` | PII scanner invocations by execution path (`regex` = local zero-cost pattern scan, `llm` = Gemini fallback scan). |
+| `auvis_recovered_panics_total` | Counter | `component` | Total count of runtime panics safely caught and isolated by Auvis recovery middleware. |
+| `auvis_kafka_consumer_lag` | Gauge | `topic`, `partition`, `group_id` | Streaming lag count for Kafka/Redpanda consumer group sources (requires `metrics_provider: "prometheus"`). |
 
 ---
 
-## 1. `metrics.go`
+## 📈 Metric Details & Production Usage
 
-All metrics are registered automatically at import via `promauto` and served over HTTP via `promhttp.Handler()`.
+### 1. Request Outcome Tracking (`auvis_requests_by_outcome_total`)
+Tracks the governance outcome of every processed request:
+* `outcome="masked"`: Request had one or more fields masked or pseudonymized.
+* `outcome="removed"`: Request had sensitive fields deleted from the payload.
+* `outcome="denied"`: Request was rejected (HTTP 403) by an explicit `action: deny` rule or shadow PHI `posture: block`.
+* `outcome="allowed"`: Request matched an allow rule or had no sensitive fields.
 
-### Metric Specifications
+```promql
+# Rate of masked requests per second
+rate(auvis_requests_by_outcome_total{outcome="masked"}[5m])
+```
 
-#### `RequestsTotal *prometheus.CounterVec`
-Tracks total HTTP proxy requests processed, broken down by HTTP status code (`status="200"`, `"403"`, `"500"`).
+### 2. Destination Write Health & Circuit Breakers
+Monitor storage sinks (e.g. pgvector, Pinecone) to detect degraded databases before they impact upstream systems:
 
-#### `RequestsByOutcomeTotal *prometheus.CounterVec`
-Tracks request count by transformation disposition:
-* `outcome="masked"`: Request contained fields masked by policy rules.
-* `outcome="removed"`: Request contained fields removed/redacted.
-* `outcome="denied"`: Request was rejected by `action: deny`.
-* `outcome="allowed"`: Request passed through without transformation.
+```promql
+# Destination write failure rate
+sum by (destination) (rate(auvis_destination_writes_total{status="failure"}[5m]))
 
-#### `RequestDurationSeconds *prometheus.HistogramVec`
-Latency histogram capturing total proxy processing time in seconds (including policy lookup, payload transformation, and async audit dispatch) labelled by `method` and `resource`.
+# Alert when any circuit breaker trips to Open (1)
+auvis_circuit_breaker_state > 0
+```
 
-#### `DestinationWritesTotal *prometheus.CounterVec`
-Tracks storage destination write attempts per driver (`destination="postgres"`, `"pinecone"`, `"weaviate"`, `"pgvector"`) and disposition (`status="success"`, `"failure"`).
+### 3. Latency Histograms (`auvis_request_duration_seconds`)
+Measures end-to-end proxy processing latency, including policy lookup, JSON parsing, field transformation, and async audit submission:
 
-#### `PolicyMatchesTotal *prometheus.CounterVec`
-Tracks policy match rate (`matched="true"` vs `matched="false"`). Useful for alerting on misconfigured or silently-broken policy sets in production.
+```promql
+# P99 latency by API resource
+histogram_quantile(0.99, sum(rate(auvis_request_duration_seconds_bucket[5m])) by (le, resource))
+```
 
-#### `PIIScanTotal *prometheus.CounterVec`
-Tracks PII scanner mode execution counts (`mode="regex"` for fast zero-cost local scans vs `mode="llm"` for LLM-fallback scans).
+### 4. Policy Matching Telemetry (`auvis_policy_matches_total`)
+Monitors whether incoming API traffic is successfully matching defined policies.
 
-#### `CircuitBreakerState *prometheus.GaugeVec`
-Gauge tracking circuit breaker state per destination (`0 = Closed`, `1 = Open`, `2 = Half-Open`).
+```promql
+# Percentage of traffic covered by governance policies
+(sum(rate(auvis_policy_matches_total{matched="true"}[5m])) / sum(rate(auvis_requests_total[5m]))) * 100
+```
 
 ---
 
-## Helper Functions
+## 🛠️ Prometheus Scrape Configuration
 
-```go
-ObserveRequest(method, resource string, statusCode int, durationSec float64)
-IncOutcome(outcome string)
-IncPolicyMatch(matched bool)
-IncDestinationWrite(destination, status string)
-IncPIIScan(mode string)
-IncPanic(component string)
-SetCircuitBreakerState(destination string, state int)
+Add the following scrape job to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: "auvis-gateway"
+    scrape_interval: 10s
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["auvis-gateway.internal:8082"]
 ```

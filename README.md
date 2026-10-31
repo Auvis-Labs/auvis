@@ -225,10 +225,14 @@ And the audit log records:
 
 ## Documentation
 
+- [Quickstart Guide](docs/quickstart.md) — 5-minute onboarding with the CLI and Docker Compose.
 - [Configuration Reference (`auvis.yaml`)](docs/configuration.md) — Comprehensive guide to gateway settings, streaming sources, and destination sinks.
+- [Policy YAML DSL Reference](docs/policies.md) — Rules, actions (mask, remove, pseudonymize, llm_intercept), and condition syntax.
+- [CLI Command Reference](docs/cmd.md) — Complete guide to `auvis dev`, `init`, `validate`, `status`, and `logs`.
+- [Audit & Compliance Logging](docs/audit.md) — Structured JSONL audit format, fsync durability modes, and compliance reports.
+- [Prometheus Metrics Reference](docs/metrics.md) — Telemetry counters, gauges, latency histograms, and Grafana dashboards.
 - [WAN & Hybrid Cloud Deployment Guide](docs/wan_hybrid_guide.md) — Architecture patterns, consumer group offset rules, and WAN timeout tuning for edge-to-cloud streams.
-- [Pipeline Architecture (`pipeline`)](docs/pipeline.md) — Deep dive into stream ingestion, policy engines, and destination drivers.
-- [Audit & Compliance Logging](docs/audit.md) — Structured audit format, fsync durability modes, and compliance reports.
+- [Threat Model & Security Architecture](docs/threat_model.md) — Security boundaries, fail-closed enforcement, and attack surface mitigations.
 
 ---
 

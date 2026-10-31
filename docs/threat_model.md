@@ -6,28 +6,24 @@ This document details the threat model, security boundaries, and architectural t
 
 ## 🛡️ Security Boundaries & Core Principles
 
-```
-           +-------------------------------------------------------+
-           |                 Client / Application                  |
-           +-------------------------------------------------------+
-                                       |
-                                HTTP Requests
-                                       v
-+---------------------------------------------------------------------------------+
-|                              AUVIS GATEWAY                                      |
-|                                                                                 |
-|  1. Identity Context Extraction (X-User-ID, X-User-Role, JWT)                  |
-|  2. In-Memory Policy Store Lookup (<0.01ms, Compile-Time Graph)                 |
-|  3. Fail-Closed Condition Evaluation (Missing attributes -> Mask/Exclude)       |
-|  4. Stream Transformation Engine (Mask, Remove, Redact, Pseudonymize)           |
-|  5. Audit Logger (Configurable Fsync Durability Modes)                         |
-+---------------------------------------------------------------------------------+
-                                       |
-                                Governed Traffic
-                                       v
-           +-------------------------------------------------------+
-           |                 Upstream API Services                 |
-           +-------------------------------------------------------+
+```mermaid
+flowchart TD
+    Client["Client / Application"]
+    Upstream["Upstream API Services"]
+
+    subgraph Gateway["AUVIS GATEWAY (Security Boundary)"]
+        direction TB
+        S1["1. Identity Context Extraction (X-User-ID, JWT)"]
+        S2["2. In-Memory Policy Store Lookup (&lt;0.01ms)"]
+        S3["3. Fail-Closed Condition Evaluation"]
+        S4["4. Stream Transformation Engine (Mask, Remove, Redact, Pseudonymize)"]
+        S5["5. Audit Logger (Configurable Fsync Durability Modes)"]
+
+        S1 --> S2 --> S3 --> S4 --> S5
+    end
+
+    Client -->|"HTTP Requests"| S1
+    S5 -->|"Governed Traffic"| Upstream
 ```
 
 ---

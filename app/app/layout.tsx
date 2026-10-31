@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-export const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+export const bricolage = localFont({
+  src: [
+    {
+      path: "../node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2",
+      weight: "400 800",
+      style: "normal",
+    },
+  ],
   variable: "--font-bricolage",
   display: "swap",
 });
 
-export const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const dmSans = localFont({
+  src: [
+    {
+      path: "../node_modules/@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2",
+      weight: "400 600",
+      style: "normal",
+    },
+  ],
   variable: "--font-dm-sans",
   display: "swap",
 });
@@ -41,7 +52,10 @@ export default function RootLayout({
       lang="en"
       className={`${bricolage.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, ArrowRight, BookOpen, ShieldCheck } from "lucide-react";
 
@@ -48,16 +49,14 @@ const CtaCard = () => {
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
             {/* Primary CTA: Read the Docs */}
-            <a
-              href="https://github.com/cridiv/Auvis#documentation"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/docs"
               className="group inline-flex items-center gap-2 rounded-lg bg-[#0B0C11] px-6 py-3.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#7B62FC] active:scale-[0.98]"
             >
               {/* <BookOpen className="h-4 w-4" /> */}
               <span>Read the Docs</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </a>
+            </Link>
 
             {/* Secondary CTA: View on GitHub */}
             <a

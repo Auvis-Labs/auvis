@@ -1,0 +1,153 @@
+---
+title: "CLI Command Reference"
+description: "Command-line tool reference for auvis dev, init, validate, status, logs, and version."
+section: "Configuration & Routing"
+order: 2
+---
+
+The `auvis` command-line tool provides commands for local gateway development, pre-flight CI/CD policy validation, project scaffolding, and audit log inspection.
+
+---
+
+## Global Flags
+
+These flags are persistent and available on all `auvis` subcommands:
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--config` | `-c` | `"auvis.yaml"` | Path to the YAML configuration file |
+| `--policies` | | `"./policies"` | Path to the policy rules directory |
+| `--verbose` | `-v` | `false` | Enable verbose debug output |
+| `--help` | `-h` | | Display help for any command |
+
+---
+
+## Commands
+
+### 1. `auvis dev`
+
+Starts the Auvis policy enforcement gateway in development mode with **zero-downtime live policy reloading**.
+
+```bash
+# Start with default auvis.yaml
+auvis dev
+
+# Start with custom config file and verbose logging
+auvis dev -c auvis.kafka.yaml -v
+
+# Start without blocking on downstream destination reachability checks
+auvis dev --skip-destination-check
+```
+
+#### Flags:
+* `-c, --config <path>`: Specifies custom configuration YAML file.
+* `--skip-destination-check`: Bypasses startup connection checks for configured destinations (useful for offline development or when databases start in parallel).
+* `-v, --verbose`: Enables debug-level logs to stdout.
+
+#### Startup Sequence:
+1. **Config & Environment Load**: Validates `AUVIS_ENV` (`development` or `production`).
+2. **Pre-flight Policy Validation**: Lints all policy files in `policies/` before opening network ports. Fails fatally with clear line errors if misconfigurations exist.
+3. **Hot-Reload Watcher**: Mounts an `fsnotify` directory watcher on `policies/`. Edits to any `.yaml` policy apply immediately without restarting the gateway.
+4. **Destination Probing**: Tests reachability and credentials for all database/vector sinks.
+5. **Operational Probes**: Starts `/healthz` (liveness), `/readyz` (readiness), and `/metrics` (Prometheus).
+6. **Graceful Shutdown**: Listens for `SIGTERM` / `SIGINT`, halts traffic, flushes destination buffers, closes the audit log, and exits cleanly within 30 seconds.
+
+---
+
+### 2. `auvis init`
+
+Scaffolds a new Auvis project structure in the current directory. Safe to run repeatedly — existing files are never overwritten.
+
+```bash
+auvis init
+```
+
+#### Created Files:
+* `auvis.yaml`: Gateway configuration template with commented defaults.
+* `.env`: Environment variable scaffold with required variables pre-populated.
+* `policies/`: Policy rules directory.
+* `policies/example.yaml`: Working policy examples demonstrating `allow`, `mask`, `remove`, `llm_intercept`, and posture overrides.
+
+---
+
+### 3. `auvis validate`
+
+Performs deep structural and logical validation of all policy YAML files. Designed for **CI/CD pipelines** to block invalid policy merges before deployment.
+
+```bash
+# Validate policies in default ./policies directory
+auvis validate
+
+# Validate custom policies directory
+auvis validate --policies ./production-policies
+```
+
+#### Validation Checks Performed:
+* **YAML Syntax**: Detects formatting and indentation syntax errors.
+* **Required Schema**: Validates `name`, `match.roles`, `match.resource`, and `rules`.
+* **Action Types**: Verifies actions are valid (`mask`, `pseudonymize`, `remove`, `redact`, `truncate`, `allow`, `deny`, `llm_intercept`).
+* **Condition Expressions**: Parses and checks condition expression syntax.
+* **Duplicate Detection**: Flags identical policy names across different files.
+* **Overlap Warnings**: Emits warnings for overlapping `role + resource` rules.
+
+**Exit Codes:**
+* `0`: All policies validated successfully with zero errors.
+* `1`: Validation failed (prints error list with file names and fields).
+
+---
+
+### 4. `auvis status`
+
+Queries the running gateway to inspect live health, uptime, request counters, and active policy rules.
+
+```bash
+auvis status
+```
+
+---
+
+### 5. `auvis logs`
+
+Tails and filters the append-only `audit.jsonl` log file directly from the terminal.
+
+```bash
+# View the last 50 audit entries (default)
+auvis logs
+
+# Tail the log continuously in real-time
+auvis logs -f
+
+# Filter by role and resource
+auvis logs --role analyst --resource /api/v1/patients
+
+# Limit to the last 20 entries for a specific user
+auvis logs --user usr_104 --limit 20
+```
+
+#### Flags:
+* `-f, --follow`: Stream log entries in real-time as they are written.
+* `-n, --limit <int>`: Number of entries to display (default: `50`).
+* `--role <string>`: Filter by authenticated user role.
+* `--user <string>`: Filter by user ID.
+* `--resource <string>`: Filter by resource path prefix.
+
+---
+
+### 6. `auvis policies list`
+
+Inspects and renders a tabular overview of all compiled, active policies currently loaded into the running gateway.
+
+```bash
+auvis policies list
+```
+
+---
+
+### 7. `auvis version`
+
+Prints the current Auvis release version, Git commit hash, and build architecture.
+
+```bash
+auvis version
+```
+

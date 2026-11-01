@@ -142,3 +142,4 @@ func maskString(s string) string {
 	}
 	return s[:2] + strings.Repeat("*", len(s)-4) + s[len(s)-2:]
 }
+

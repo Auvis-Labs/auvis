@@ -34,3 +34,4 @@ func NewAvroDecoder() Decoder {
 func NewProtobufDecoder() Decoder {
 	return &StubDecoder{}
 }
+

@@ -46,3 +46,4 @@ func (s *Scanner) Scan(ctx context.Context, text string) (*PlaceholderMap, error
 
 	return pm, nil
 }
+

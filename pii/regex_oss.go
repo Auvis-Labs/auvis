@@ -64,3 +64,4 @@ func ScanRegex(text string) []Entity {
 func ScanLLM(ctx context.Context, text string, apiKey string) ([]Entity, error) {
 	return nil, nil
 }
+

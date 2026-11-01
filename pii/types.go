@@ -96,3 +96,4 @@ func (m *PlaceholderMap) DetectedTypes() []string {
 	}
 	return types
 }
+

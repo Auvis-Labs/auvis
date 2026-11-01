@@ -50,3 +50,4 @@ func NewPostgresDestination(settings map[string]string, auth pipelinecfg.AuthCon
 func NewWeaviateDestination(settings map[string]string, auth pipelinecfg.AuthConfig, tlsCfg pipelinecfg.TLSConfig) *WeaviateDestination {
 	return &WeaviateDestination{StubDestination{name: "weaviate"}}
 }
+

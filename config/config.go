@@ -356,9 +356,9 @@ func getEnvWithFallback(preferred, fallback string) string {
 func ensureDotEnvExists() {
 	filePath := ".env"
 	defaultVars := map[string]string{
-		"AUVIS_SALT":        "dev-mock-salt-sha256-secret-key-109283",
+		"AUVIS_SALT":        "dev-mock-salt-sha256-secret-key-109283", // #nosec G101
 		"AUVIS_GATEWAY_URL": "http://localhost:8090/patients",
-		"GEMINI_API_KEY":    "mock_gemini_api_key_placeholder",
+		"GEMINI_API_KEY":    "mock_gemini_api_key_placeholder", // #nosec G101
 		"AUVIS_IDP_URL":     "http://localhost:8080/auth",
 	}
 

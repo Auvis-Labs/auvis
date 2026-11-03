@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.19.0
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.24.0
 	github.com/riferrei/srclient v0.7.4

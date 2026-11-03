@@ -3,8 +3,8 @@ package destination
 import (
 	"errors"
 
-	"github.com/cridiv/Auvis/pipeline"
-	pipelinecfg "github.com/cridiv/Auvis/pipeline/config"
+	"github.com/Auvis-Labs/auvis/pipeline"
+	pipelinecfg "github.com/Auvis-Labs/auvis/pipeline/config"
 )
 
 var errEnterpriseOnly = errors.New("this destination connector requires Auvis Enterprise")

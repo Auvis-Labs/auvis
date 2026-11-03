@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cridiv/Auvis/transform"
-	"github.com/cridiv/Auvis/types"
+	"github.com/Auvis-Labs/auvis/transform"
+	"github.com/Auvis-Labs/auvis/types"
 )
 
 // LLMInterceptor handles outbound LLM requests.

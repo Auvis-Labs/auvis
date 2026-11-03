@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cridiv/Auvis/types"
+	"github.com/Auvis-Labs/auvis/types"
 )
 
 // extractContext builds the request context using request characteristics and the resolved caller identity.

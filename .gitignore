@@ -136,6 +136,7 @@ tests/
 test-cmd/
 test-server/
 auvis_technical_risk.md
+EXPLAIN.md
 .gitignore
 .opencode/agents/architect.md
 .opencode/agents/reviewer.md

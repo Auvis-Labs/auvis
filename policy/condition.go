@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cridiv/Auvis/types"
+	"github.com/Auvis-Labs/auvis/types"
 	"github.com/tidwall/gjson"
 )
 

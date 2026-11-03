@@ -14,8 +14,8 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
-	"github.com/cridiv/Auvis/policy"
-	"github.com/cridiv/Auvis/types"
+	"github.com/Auvis-Labs/auvis/policy"
+	"github.com/Auvis-Labs/auvis/types"
 )
 
 // Summary carries what the transform did — fed into the audit log.

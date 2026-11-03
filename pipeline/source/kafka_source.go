@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cridiv/Auvis/pipeline"
-	config "github.com/cridiv/Auvis/pipeline/config"
-	"github.com/cridiv/Auvis/pipeline/decoder"
+	"github.com/Auvis-Labs/auvis/pipeline"
+	config "github.com/Auvis-Labs/auvis/pipeline/config"
+	"github.com/Auvis-Labs/auvis/pipeline/decoder"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"

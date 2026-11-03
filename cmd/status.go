@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cridiv/Auvis/config"
+	"github.com/Auvis-Labs/auvis/config"
 )
 
 type policyStatusInfo struct {

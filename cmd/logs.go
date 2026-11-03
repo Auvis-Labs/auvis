@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cridiv/Auvis/audit"
-	"github.com/cridiv/Auvis/config"
+	"github.com/Auvis-Labs/auvis/audit"
+	"github.com/Auvis-Labs/auvis/config"
 )
 
 var (

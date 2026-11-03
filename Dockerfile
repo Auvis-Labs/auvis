@@ -11,7 +11,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=demo -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o /build/auvis \
-    .
+    ./cmd/auvis
 
 FROM alpine:3.20
 

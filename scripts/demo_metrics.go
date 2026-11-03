@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/cridiv/Auvis/metrics"
+	"github.com/Auvis-Labs/auvis/metrics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

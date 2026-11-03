@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/cridiv/Auvis/cmd"
+	"github.com/Auvis-Labs/auvis/cmd"
 )
 
 func main() {
 	cmd.Execute()
 }
+

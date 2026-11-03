@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cridiv/Auvis/config"
-	"github.com/cridiv/Auvis/policy"
+	"github.com/Auvis-Labs/auvis/config"
+	"github.com/Auvis-Labs/auvis/policy"
 )
 
 // UpstreamRoute holds the resolved target URL, policy store, and config for a specific upstream.

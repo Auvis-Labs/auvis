@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cridiv/Auvis/metrics"
-	"github.com/cridiv/Auvis/pipeline"
+	"github.com/Auvis-Labs/auvis/metrics"
+	"github.com/Auvis-Labs/auvis/pipeline"
 )
 
 // DestWriteResult records the outcome of a single destination write within a fan-out.

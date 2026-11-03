@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cridiv/Auvis/metrics"
-	"github.com/cridiv/Auvis/pipeline"
+	"github.com/Auvis-Labs/auvis/metrics"
+	"github.com/Auvis-Labs/auvis/pipeline"
 )
 
 // ErrCircuitOpen is returned immediately when a destination's circuit breaker is Open (tripped).

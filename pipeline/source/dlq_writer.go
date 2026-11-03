@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/cridiv/Auvis/pipeline"
+	"github.com/Auvis-Labs/auvis/pipeline"
 
 	"github.com/segmentio/kafka-go"
 )

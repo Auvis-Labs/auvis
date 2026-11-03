@@ -15,15 +15,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cridiv/Auvis/audit"
-	"github.com/cridiv/Auvis/config"
-	"github.com/cridiv/Auvis/pipeline"
-	"github.com/cridiv/Auvis/pipeline/destination"
-	pipelinesource "github.com/cridiv/Auvis/pipeline/source"
-	"github.com/cridiv/Auvis/policy"
-	"github.com/cridiv/Auvis/proxy"
-	"github.com/cridiv/Auvis/stream"
-	"github.com/cridiv/Auvis/transform"
+	"github.com/Auvis-Labs/auvis/audit"
+	"github.com/Auvis-Labs/auvis/config"
+	"github.com/Auvis-Labs/auvis/pipeline"
+	"github.com/Auvis-Labs/auvis/pipeline/destination"
+	pipelinesource "github.com/Auvis-Labs/auvis/pipeline/source"
+	"github.com/Auvis-Labs/auvis/policy"
+	"github.com/Auvis-Labs/auvis/proxy"
+	"github.com/Auvis-Labs/auvis/stream"
+	"github.com/Auvis-Labs/auvis/transform"
 )
 
 var skipDestinationCheck bool

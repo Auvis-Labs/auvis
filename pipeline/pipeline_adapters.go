@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/cridiv/Auvis/policy"
-	"github.com/cridiv/Auvis/transform"
-	"github.com/cridiv/Auvis/types"
+	"github.com/Auvis-Labs/auvis/policy"
+	"github.com/Auvis-Labs/auvis/transform"
+	"github.com/Auvis-Labs/auvis/types"
 )
 
 // NopDestination is a no-op Destination used when no downstream data sink is configured for a source pipeline.

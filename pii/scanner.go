@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cridiv/Auvis/metrics"
+	"github.com/Auvis-Labs/auvis/metrics"
 )
 
 // Scanner runs regex first, then optionally LLM for anything missed.

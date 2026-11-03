@@ -6,7 +6,7 @@ before:
 
 builds:
   - id: auvis
-    main: ./main.go
+    main: ./cmd/auvis
     binary: auvis
     env:
       - CGO_ENABLED=0

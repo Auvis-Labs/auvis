@@ -27,4 +27,9 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Build Auvis Binary
-        run: go build -v -o auvis .
+        run: go build -v -o auvis ./cmd/auvis
+
+      - name: Verify Go Install
+        run: |
+          go install ./cmd/auvis
+          $(go env GOPATH)/bin/auvis version

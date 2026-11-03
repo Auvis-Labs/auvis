@@ -12,7 +12,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/cridiv/Auvis/policy"
+	"github.com/Auvis-Labs/auvis/policy"
 )
 
 // RegisterHandlers mounts the internal AUVIS endpoints onto mux.

@@ -143,3 +143,8 @@ EXPLAIN.md
 .codelens-cache/explanations.json
 .gitignore
 .codelens-cache/graph.json
+
+# Local Go workspace files
+go.work
+go.work.sum
+

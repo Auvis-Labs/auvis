@@ -2,19 +2,24 @@
 
 # Auvis
 
-**Policy enforcement for AI data pipelines.**
+**Open-source policy enforcement layer for AI data pipelines.**
 
 Govern your data before it reaches your AI — so your AI projects don't die in the security review.
 
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat)](LICENSE)
-[![CI Status](https://github.com/cridiv/Auvis/actions/workflows/ci.yml/badge.svg)](https://github.com/cridiv/Auvis/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/cridiv/Auvis.svg)](https://pkg.go.dev/github.com/cridiv/Auvis)
-[![Version](https://img.shields.io/badge/version-v0.2.6-green?style=flat)](https://github.com/cridiv/Auvis/releases)
+[![CI Status](https://github.com/Auvis-Labs/auvis/actions/workflows/ci.yml/badge.svg)](https://github.com/Auvis-Labs/auvis/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Auvis-Labs/auvis.svg)](https://pkg.go.dev/github.com/Auvis-Labs/auvis)
+[![Version](https://img.shields.io/badge/version-v0.2.6-green?style=flat)](https://github.com/Auvis-Labs/auvis/releases)
 
 </div>
 
 ![Auvis](public/auvis_gith.png)
+
+> [!NOTE]
+> **Scope of this repository:** This repo contains **Auvis Core — the policy enforcement layer** (the HTTP reverse proxy, declarative YAML policy engine, field-level transformations, basic regex PII masking, Kafka source driver, circuit breakers, and JSONL audit logger).
+>
+> It is **not the full Auvis platform**. Source-permission continuity and retrieval authorization, along with managed vector database connectors, Confluent Schema Registry decoders, and contextual LLM PII scanning, are excluded from this repository. Extensible stub interfaces are provided in `pii/`, `pipeline/decoder/`, and `pipeline/destination/`.
 
 ## The Problem
 

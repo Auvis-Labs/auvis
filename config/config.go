@@ -47,21 +47,21 @@ type SourceConfig struct {
 }
 
 type Config struct {
-	Port               string
-	UpstreamURL        string
-	AuditFile          string
-	AuditMaxSizeMB     int
-	AuditMaxAgeDays    int
-	AuditFsyncInterval string
-	PoliciesDir        string
-	IdpURL             string
-	Salt               string
-	ShutdownTimeoutSec int
-	CircuitBreaker     CircuitBreakerConfig
-	Env                string // "development" | "production"
+	Port                 string
+	UpstreamURL          string
+	AuditFile            string
+	AuditMaxSizeMB       int
+	AuditMaxAgeDays      int
+	AuditFsyncInterval   string
+	PoliciesDir          string
+	IdpURL               string
+	Salt                 string
+	ShutdownTimeoutSec   int
+	CircuitBreaker       CircuitBreakerConfig
+	Env                  string // "development" | "production"
 	UngovernedPHIPosture string
-	Upstreams    []UpstreamConfig
-	Destinations []DestinationConfig
+	Upstreams            []UpstreamConfig
+	Destinations         []DestinationConfig
 	// Sources is the list of inbound pipeline data sources (e.g. Kafka).
 	// Each source runs an independent consumer goroutine inside auvis dev.
 	Sources []SourceConfig
